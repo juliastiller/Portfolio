@@ -47,3 +47,5 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+CSAS Data Challenge 2025/Raw-Data/statcast_pitch_swing_data_20240402_20240630.csv
+*.rds
