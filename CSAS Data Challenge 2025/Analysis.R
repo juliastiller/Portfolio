@@ -121,12 +121,6 @@ explore <- swings %>%
 cor(explore$bat_speed, explore$swing_length)
 
 plot(explore$bat_speed, explore$swing_length)
-
-#Alan on 12/14: show 5 rows of the d where the bat speed is less than 20 and the swing length is less than 2
-head(d %>%
-       filter(bat_speed < 20) %>%
-       filter(swing_length < 2), 20)
-#so, the lower cloud on the batspeed swing length plot is largely bunts
      
 # examine swing_length and bat_speed by balls, strikes, and outs
 swings %>%
@@ -222,7 +216,11 @@ test %>%
   coord_cartesian(xlim = c(0, 90), ylim = c(65, 75))
 
 # NEXT STEP: check what the clumps of points are - confirm they are bunts
-
+# show 5 rows of the d where the bat speed is less than 20 and the swing length is less than 2
+head(d %>%
+       filter(bat_speed < 20) %>%
+       filter(swing_length < 2), 20)
+#so, the lower cloud on the batspeed swing length plot is largely bunts
 
 # model to predict wOBA or run expectancy
 # need to come back and figure out which one to use
@@ -296,7 +294,3 @@ head(not_swings$delta_run_exp)
 #when batters should have swung, using the swings as training set (resulting wOBA)
 
 #subset of data to feature engineer/select???
-
-#Model to be trained???
-
-#Evaluate performance of said model???
