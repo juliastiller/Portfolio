@@ -57,7 +57,6 @@ hist(d$launch_angle)
 hist(d$release_extension)
 hist(d$release_spin_rate)
 
-#Alan on 11/14
 #interesting, the 20 rows where the delta_run_exp is null are all pitchouts
 #not recorded in the event column, put is in the pitch type & description column
 d %>%
@@ -70,7 +69,7 @@ table(d$events)
 
 # show the number of balls and strikes in a table, labeling the axes
 table(d$strikes, d$balls)
-# label the axes
+# label the axes?
 kable(table(d$strikes, d$balls))
 
 ##THE PLAN
@@ -151,12 +150,12 @@ swings %>%
 # work on model:
 # create a training set
 train = swings %>%
-  select(bat_speed, swing_length, balls, strikes, outs_when_up, pitch_category, estimated_woba_using_speedangle, woba_value, woba_denom) %>%
+  select(bat_speed, swing_length, balls, strikes, outs_when_up, pitch_category, estimated_woba_using_speedangle, woba_value, woba_denom, release_pos_x, release_pos_z, release_speed) %>%
   sample_frac(0.7)
 
 # create a test set
 test = swings %>%
-  select(bat_speed, swing_length, balls, strikes, outs_when_up, pitch_category, estimated_woba_using_speedangle, woba_value, woba_denom) %>%
+  select(bat_speed, swing_length, balls, strikes, outs_when_up, pitch_category, estimated_woba_using_speedangle, woba_value, woba_denom, release_pos_x, release_pos_z, release_speed) %>%
   anti_join(train)
 
 # train the model
@@ -186,7 +185,7 @@ summary(model_length_improved2)
 summary(model_speed_improved2)
 
 # predict the swing length
-predict(model, test)
+predict(model_length, test)
 
 # compare the predicted swing length to the actual swing length
 test %>%
@@ -245,8 +244,14 @@ model4 = lm(woba_value ~ bat_speed + swing_length + balls + strikes + outs_when_
 summary(model4)
 # models using estimated version are better
 
-# consider including more metrics that are helpful for predicting wOBA
+# now include more metrics that are helpful for predicting wOBA
 # term for batter and pitcher? mixed effects model
+
+# include location of pitch in model
+# could break into regions and do categorical
+# add release_pos_x and release_pos_z to model
+model5 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + balls + strikes + outs_when_up + pitch_category + release_pos_x + release_pos_z + release_speed, data=train)
+summary(model5)
 
 
 # predict the wOBA
@@ -274,9 +279,6 @@ test %>%
 corrplot::corrplot(cor(swings[,c("bat_speed", "swing_length", "balls", "strikes", "outs_when_up")]), method = "number")
 # use ggpairs()
 ggpairs(swings[,c("bat_speed", "swing_length", "balls", "strikes", "outs_when_up")])
-
-# maybe include location of pitch in model
-# could break into regions and do categorical
 
 # could also break into stages - if you do or do not swing, what is the wOBA
 # expected wOBA of next state

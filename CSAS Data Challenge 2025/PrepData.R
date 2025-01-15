@@ -31,6 +31,10 @@ d = d %>%
 # Now get the na counts for each column
 colSums(is.na(d)) #looks good
 
+# Drop the one row that has four balls recorded
+d = d %>%
+  filter(d$balls != 4)
+
 # Condense the pitch type
 d$pitch_category <- case_when(
   d$pitch_type %in% c("CS", "CU", "KC") ~ "Curveball",
@@ -49,4 +53,3 @@ d %>%
 
 # Last step - save as Data.rds to be used in Analysis.R
 saveRDS(d, "Data.rds")
-

@@ -42,45 +42,35 @@ This study leverages that dataset to analyze how bat speed, swing length, and co
 
 The dataset for this analysis was obtained as part of the CSAS 2025 Data Challenge and was provided via a [SharePoint link](https://yaleedu-my.sharepoint.com/personal/brian_macdonald_yale_edu/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fbrian%5Fmacdonald%5Fyale%5Fedu%2FDocuments%2Fservice%2FCSAS%2F2025%2D04%2D11%20%2D%20CSAS%20at%20Yale%2Fdata%2Echallenge%2Fdata&ga=1). The dataset was subsequently downloaded as a CSV file and then saved to an RDS file. To prepare the data, we removed columns that were deprecated or those that were found to be all empty values. We then also removed a small fraction of the rows that had no pitch type or release speed value due to a data entry error. Following data cleaning and preprocessing, we conducted exploratory data analysis to identify trends and validate the feasibility of modeling offensive production metrics (wOBA/run expectancy) based on contextual and swing-related factors in the dataset.
 
-The dataset contains lots of Baseball specific terms and metrics, meaning a glossary is necessary to understand the data and a significant amount of time is needed to interpret the meaning of each column before analysis can begin. For example, wOBA, short for Weighted on-base average is a metric that quantifies offensive value of a play or player based on the relative value of each type of offensive event, normalized by season to be on comparable scales.
-
 This paper is organized as follows: **Section 2** presents an exploratory analysis of the dataset, highlighting patterns and trends in relevant predictors. **Section 3** outlines the development of predictive models, especially regression models, with an emphasis on evaluating their accuracy and interpretability in prediction. **Section 4** discusses the implications of findings up to this point, including interpretations and potential applications for hitters and coaching staff. Finally, **Section 5** concludes with a summary of the key findings and recommendations for further work. The insights gained from this analysis will be used to inform future work and potentially contribute to the development of new strategies for optimizing offensive performance in Major League Baseball.
 
 ## Section 2: Data exploration and Visualization 
 
-Given the context and rich dataset provided for this challenge, extensive data exploration and visualization was required to identify and understand patterns in the data. There are more than 100 unique variables for each of the more than 700,000 pitches in the cleaned dataset, each one giving unique information on the pitch, the batter, the pitcher, and the game situation. A significant part of the work for this study, and the essence of the data challenge as a whole, is to focus on a specific aspect of the game through this data to provide insights and recommendations for the batter-pitcher interaction.
-
-The visualizations and commentary below provide a glimpse into the exploratory analysis conducted on the dataset.
+Given the context and rich dataset provided for this challenge, extensive data exploration revealed key patterns in a dataset containing over 700,000 pitches and 100 variables. A significant part of the work for this study, and the essence of the data challenge as a whole, is to focus on a specific aspect of the game through this data to provide insights and recommendations for the batter-pitcher interaction. The visualizations and commentary below provide a glimpse into the exploratory analysis conducted on the dataset.
 
 ```{r}
 # Read in the .rds file
 # make sure it is created first (Data.rds and not just RawData.rds)
-#d = readRDS("/Users/alanphlips/Yale/Third Semester/Capstone/Data.rds")
 d = readRDS("Data.rds")
-```
-
-As mentioned before, the dataset contains information on numerous aspects of the pitcher-batter interaction. One such aspect is the release point of each pitch as it moves towards the batter. The scatter plot below shows the release points of all pitches in the dataset. The x-axis represents the horizontal release point of the pitch, while the y-axis represents the vertical release point. This is information can be useful for batters to understand the trajectory of the pitch and make better decisions on whether to swing or not. While inherently very insightful, it was not used in this study beyond exploration due to the complexity of the data and the focus on swing length and bat speed.
-
-
-```{r}
-# Create a scatterplot of realease_pos_x, release_pos_z
-par(pin = c(3, 2))
-set.seed(123)
-
-# Create a 20% random subsample
-d_sample <- d[sample(nrow(d), size = 0.2 * nrow(d)), ]
-
-plot(d_sample$release_pos_x, d_sample$release_pos_z, main = "Release Point of Pitches", xlab = "Horizontal Release Point", ylab = "Vertical Release Point")
 ```
 
 One aspect of the data that was used in the study is the number of balls and strikes present in the count as it is called before each pitch. The table below shows the number of balls and strikes in the dataset. This information is crucial for understanding the context of the pitcher-batter interaction as there are well known advantages and strategies for both sides of the interaction depending on the count. 
 
 ```{r}
 # show the number of balls and strikes in a table like plot, labeling the axes
-kable(table(d$strikes, d$balls))
+kable(table(d$strikes, d$balls),
+      row.names(c("0 Strikes", "1 Strike", "2 Strikes")),
+      col.names = c("0 Balls", "1 Ball", "2 Balls", "3 Balls"))
 ```
 
-Given that our study focuses on the relationship between swing length, bat speed, and offensive production metrics, we explored the distribution of swing length and bat speed in the dataset. The histograms below show the distribution of bat speed and swing length in the dataset. Both individual plots revealed a bimodal distribution with one large peak at higher values (a full power swing) and a smaller and less frequent peak at lower values (these were investigated and found to mostly be bunts). 
+The type of pitch thrown by the pitcher is another important aspect of the pitcher-batter interaction. Pitch types were categorized into 5 major groups and the table below shows the number of pitches in each of these categories. This information is crucial for batters to understand the type of pitch they are facing and adjust their swing mechanics accordingly.
+
+```{r}
+# show the distribution of pitch types in a table like plot, labeling the axes
+kable(table(d$pitch_category), col.names = c("Pitch Category", "Frequency"))
+```
+
+Given that our study focuses on the relationship between swing length, bat speed, and offensive production metrics, we explored the distribution of swing length and bat speed in the dataset. The histograms below show the distribution of bat speed and swing length in the dataset. Both individual plots revealed a bimodal distribution with one large peak at higher values (a full power swing) and a smaller and less frequent peak at lower values (these were investigated and found to mostly be bunts).
 
 ```{r}
 par(pin = c(3, 2))
@@ -93,7 +83,6 @@ hist(d$swing_length, breaks=100, main = "Distribution of Swing Length (MLB)", xl
 ```
 
 After the individual investigations, the two metrics were considered together in a scatterplot to understand the relationship between bat speed and swing length. The scatterplot below shows the relationship between bat speed and swing length for all batters in the dataset. While the correlation between the two metrics was calculated to only be around .5, the relationship is intuitive as a longer swing length allows for a greater range of motion and the potential for higher bat speed. Conversely, a shorter swing length at slower speeds is most often used for bunts or attempting to make contact with a pitch that is difficult to hit. 
-
 
 ```{r}
 # scatterplot of bat speed and swing length
@@ -109,45 +98,35 @@ s_sample <- swings[sample(nrow(swings), size = 0.2 * nrow(swings)), ]
 plot(s_sample$bat_speed, s_sample$swing_length, main = "Bat Speed vs. Swing Length (MLB)", xlab = "Bat Speed (ft/s)", ylab = "Swing Length (ft)")
 ```
 
-
 ```{r}
 not_swings = d %>%
   filter(is.na(bat_speed)) %>%
   filter(is.na(swing_length))
 ```
 
-Up to this point, data exploration was conducted on the entire dataset. This made it simple to make overarching assumptions that could be verified with external sources or domain knowledge. However, it failed to consider the large number of combinations of batters, pitchers, pitch types, and game situations that cna impact the bat speed and swing length.
-
-The next step was to see if the relationships observed for the whole dataset between swing length and bat speed held at a more granular level. The code below shows the first five rows of the dataset for Juan Soto, a well-known power hitter in Major League Baseball. 
-
-From the correlation coefficient and single variate plots a similar relationship between bat speed and swing length was observed for Juan Soto. The scatterplot below shows a similar association but not identical shaped cloud between bat speed and swing length. There are almost no bunt type swings and the majority of his swings are concentrated at high rates of bat speed. This suggests that the relationship between bat speed and swing length can vary across different batters due to their inherent approaches, abilities, and other characteristics. This is important to consider when ultimately giving recommendations to batters on how to optimize their swing length and bat speed for the best outcomes. What may work for one batter or even the league at large may not work for another specific batter. 
-
+Another aspect of the pitcher-batter interaction is the release point of each pitch as it moves towards the batter. The scatter plot below shows the release points of all pitches in the dataset. The x-axis represents the horizontal release point of the pitch, while the y-axis represents the vertical release point. This is information can be useful for batters to understand the trajectory of the pitch and make better decisions on whether to swing or not.
 
 ```{r}
-explore <- swings %>%
-  filter(player_name == "Soto, Juan") %>%
-  select(bat_speed, swing_length, balls, strikes, outs_when_up, pitch_category)
+# Create a scatterplot of realease_pos_x, release_pos_z
+par(pin = c(3, 2))
+set.seed(123)
 
-cor(explore$bat_speed, explore$swing_length)
+# Create a 20% random subsample
+d_sample <- d[sample(nrow(d), size = 0.2 * nrow(d)), ]
+
+# color by pitch_category
+ggplot(d_sample, aes(x = release_pos_x, y = release_pos_z, color = pitch_category)) +
+  geom_point() +
+  labs(title = "Release Point of Pitches by Pitch Category", x = "Horizontal Release Point", y = "Vertical Release Point")
 ```
 
-
-
-```{r}
-par(pin = c(3, 2))
-hist(explore$swing_length, breaks = 20, main = "Distribution of Swing Length (Juan Soto)", xlab = "Swing Length (ft)", ylab = "Frequency")
-```
-
+One of the metrics that results from the pitcher-batter interaction is Weighted on-base average (wOBA), which quantifies offensive value of a play or player based on the relative value of each type of offensive event, normalized by season to be on comparable scales. The histogram below shows the distribution of wOBA in the dataset. This metric is important for understanding the overall offensive value of a player and can be used to evaluate the effectiveness of a batter in a given situation.
 
 ```{r}
+# Create a histogram of wOBA
 par(pin = c(3, 2))
-hist(explore$bat_speed, breaks = 20, main = "Distribution of Bat Speed (Juan Soto)", xlab = "Bat Speed (ft/s)", ylab = "Frequency")
-```
 
-
-```{r}
-par(pin = c(3, 2))
-plot(explore$bat_speed, explore$swing_length, main = "Bat Speed vs. Swing Length (Juan Soto)", xlab = "Bat Speed (ft/s)", ylab = "Swing Length (ft)")
+hist(d$estimated_woba_using_speedangle, breaks = 100, main = "Distribution of Estimated wOBA (MLB)", xlab = "Estimated wOBA", ylab = "Frequency")
 ```
 
 
@@ -433,7 +412,10 @@ For predicting wOBA, we found that bat speed and swing length are important pred
 
 To advance in the CSAS 2025 Data Challenge, the next steps involve refining the existing models by adding interaction terms, polynomial features, and exploring non-linear techniques like Random Forest or XGBoost for better predictive accuracy. It's important to evaluate model performance to avoid overfitting and improve generalization. Additionally, incorporating features like pitch location, batter-pitcher interactions, and pitch speed can enhance model insights. By following these steps, we can refine our models to provide deeper insights into batting performance, ensuring that our predictions are both accurate and actionable, ultimately helping batters optimize their approach in the game.
 
+\newpage
+
 ## References
+
 [Baseball Savant Data Dictionary](https://baseballsavant.mlb.com/csv-docs)
 
 Petriello, M. 2024: [Everything to know about Statcast's new bat-tracking data](https://www.mlb.com/news/what-you-need-to-know-about-statcast-bat-tracking)
@@ -443,3 +425,38 @@ Scott Powers and Ron Yurko: [Swinging, Fast and Slow](https://drive.google.com/f
 [Fangraphs Website](https://www.fangraphs.com/)
 
 Goldbeck, G. 2023 (in MLB Technology Blog): [Introducing Statcast 2023: High Frame Rate Bat and Biomechanics Tracking](https://technology.mlblogs.com/introducing-statcast-2023-high-frame-rate-bat-and-biomechanics-tracking-3844890264a6)
+
+\newpage
+
+## Appendix
+
+### A.1
+
+Data exploration was conducted on the entire dataset, which made it simple to make overarching assumptions that could be verified with external sources or domain knowledge. However, it failed to consider the large number of combinations of batters, pitchers, pitch types, and game situations that can impact the bat speed and swing length. Therefore, to see if the relationships observed for the whole dataset between swing length and bat speed held at a more granular level, we examined Juan Soto, a well-known power hitter in Major League Baseball. 
+
+From the correlation coefficient and single variate plots a similar relationship between bat speed and swing length was observed for Juan Soto. The scatterplot below shows a similar association but not an identical shaped cloud between bat speed and swing length. There are almost no bunt type swings and the majority of his swings are concentrated at high rates of bat speed. This suggests that the relationship between bat speed and swing length can vary across different batters due to their inherent approaches, abilities, and other characteristics. This is important to consider when ultimately giving recommendations to batters on how to optimize their swing length and bat speed for the best outcomes. What may work for one batter or even the league at large may not work for another specific batter. 
+
+```{r}
+explore <- swings %>%
+  filter(player_name == "Soto, Juan") %>%
+  select(bat_speed, swing_length, balls, strikes, outs_when_up, pitch_category)
+
+cor(explore$bat_speed, explore$swing_length)
+```
+
+```{r}
+par(pin = c(3, 2))
+hist(explore$swing_length, breaks = 20, main = "Distribution of Swing Length (Juan Soto)", xlab = "Swing Length (ft)", ylab = "Frequency")
+```
+
+```{r}
+par(pin = c(3, 2))
+hist(explore$bat_speed, breaks = 20, main = "Distribution of Bat Speed (Juan Soto)", xlab = "Bat Speed (ft/s)", ylab = "Frequency")
+```
+
+```{r}
+par(pin = c(3, 2))
+plot(explore$bat_speed, explore$swing_length, main = "Bat Speed vs. Swing Length (Juan Soto)", xlab = "Bat Speed (ft/s)", ylab = "Swing Length (ft)")
+```
+
+
