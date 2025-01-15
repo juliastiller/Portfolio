@@ -6,7 +6,6 @@ d = readRDS("Rawdata.rds")
 
 # Examine
 head(d)
-# d is a tibble! booooooo
 
 # Cast d as a dataframe
 d = as.data.frame(d)
