@@ -1,6 +1,6 @@
-# 625-Capstone-Alan-Julia
+# CSAS Data Challenge 2025
 
-# MLB Pitch-Level Statcast Data Analysis: CSAS 2025 Data Challenge
+# MLB Pitch-Level Statcast Data Analysis
 
 ## Overview
 
@@ -8,14 +8,11 @@ This repository contains the code and materials for our analysis of MLB pitch-le
 
 ## Files
 
-### `ExecutiveSummary.Rmd`
-- **Description**: Contains the high-level summary of the project, including key findings and implications.
-
 ### `Main.R`
 - **Description**: The primary script to run the entire analysis pipeline, including data preparation, exploratory analysis, and model building.
 
 ### `ObtainData.R`
-- **Description**: Script to obtain the raw data from the 2025 CSAS Data Challenge and prepare it for preprocessing.
+- **Description**: Script to obtain the raw data for the 2025 CSAS Data Challenge and prepare it for preprocessing.
 
 ### `PrepData.R`
 - **Description**: Script for cleaning and preprocessing the raw data, including handling missing values and dropping empty columns.
@@ -23,11 +20,8 @@ This repository contains the code and materials for our analysis of MLB pitch-le
 ### `Analysis.R`
 - **Description**: Script that contains the data exploration, visualizations, model training and analysis.
 
-### `Rawdata.rds`
-- **Description**: Serialized R object containing the raw data extracted from the provided csv dataset for the 2024 MLB season.
-
 ### `Report.Rmd`
-- **Description**: Main report file, contains abstract detailed methodology, results, and interpretations of the analysis.
+- **Description**: Main report file, contains abstract, detailed methodology, results, and interpretations of the analysis.
 
 ### `Report.pdf`
-- **Description**: Knitted PDF version of the final report for submission
+- **Description**: Knitted PDF version of the final report for submission.
