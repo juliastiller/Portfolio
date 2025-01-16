@@ -1,5 +1,5 @@
 ---
-title: "CSAS Data Challenge 2025: MLB Swing Length and Bat Speed"
+title: "CSAS Data Challenge 2025: A Pitch-Level Analysis of MLB Swing Length and Bat Speed"
 author: "Julia Stiller"
 date: "1/15/2025"
 output:
@@ -37,11 +37,11 @@ This report examines the relationship between swing mechanics (bat speed and swi
 
 ## Section 1: Introduction
 
-The [Connecticut Sports Analytics Symposium (CSAS) 2025 Data Challenge](https://statds.org/events/csas2025/challenge.html) provides pitch-level data from Baseball Savant for 701,557 Major League Baseball plate appearances from 4/2/2024 to 10/30/2024, including relevant Statcast data along with bat speed and swing length on pitches with a swing tracked. The challenge is to use new baseball data on bat speed and swing length to analyze some aspect of the pitcher/batter interaction.
+The [Connecticut Sports Analytics Symposium (CSAS) 2025 Data Challenge](https://statds.org/events/csas2025/challenge.html) provides pitch-level data from Baseball Savant for 701,557 Major League Baseball plate appearances from 4/2/2024 to 10/30/2024, including relevant Statcast data along with bat speed and swing length on pitches with a swing tracked. The challenge is to use new baseball data on bat speed and swing length to analyze some aspect of the pitcher-batter interaction.
 
-This study leverages that dataset to analyze how bat speed, swing length, and contextual factors such as the count, outs, and information on the batter-pitcher combinations influence outcomes like weighted On-Base Average (wOBA) and run expectancy. By modeling these relationships, we aim to provide actionable insights to help batters determine the optimal conditions under which to swing or not swing, ultimately improving offensive decision-making.
+This study leverages that dataset to analyze how bat speed, swing length, and contextual factors influence outcomes like weighted On-Base Average (wOBA). By modeling these relationships, we aim to provide actionable insights to help batters determine the optimal conditions under which to swing and what their swing mechanics should be, ultimately improving offensive decision-making.
 
-The dataset for this analysis was obtained as part of the CSAS 2025 Data Challenge and was provided via a [SharePoint link](https://yaleedu-my.sharepoint.com/personal/brian_macdonald_yale_edu/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fbrian%5Fmacdonald%5Fyale%5Fedu%2FDocuments%2Fservice%2FCSAS%2F2025%2D04%2D11%20%2D%20CSAS%20at%20Yale%2Fdata%2Echallenge%2Fdata&ga=1). The dataset was subsequently downloaded as a CSV file and then saved to an RDS file. To prepare the data, we removed columns that were deprecated or those that were found to be all empty values. We then also removed a small fraction of the rows that had no pitch type or release speed value due to a data entry error. Following data cleaning and preprocessing, we conducted exploratory data analysis to identify trends and validate the feasibility of modeling offensive production metrics (wOBA/run expectancy) based on contextual and swing-related factors in the dataset.
+The dataset for this analysis was obtained as part of the CSAS 2025 Data Challenge and was provided via a [SharePoint link](https://yaleedu-my.sharepoint.com/personal/brian_macdonald_yale_edu/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fbrian%5Fmacdonald%5Fyale%5Fedu%2FDocuments%2Fservice%2FCSAS%2F2025%2D04%2D11%20%2D%20CSAS%20at%20Yale%2Fdata%2Echallenge%2Fdata&ga=1). The dataset was subsequently downloaded as a CSV file and then saved to an RDS file. To prepare the data, we removed columns that were deprecated or those that were found to be all empty values. We then also removed a small fraction of the rows that had no pitch type or release speed value due to a data entry error. Following data cleaning and preprocessing, we conducted exploratory data analysis to identify trends and validate the feasibility of modeling offensive production metrics (wOBA) based on contextual and swing-related factors in the dataset.
 
 This paper is organized as follows: **Section 2** presents an exploratory analysis of the dataset, highlighting patterns and trends in relevant predictors. **Section 3** outlines the development of predictive models, especially regression models, with an emphasis on evaluating their accuracy and interpretability in prediction. Finally, **Section 4** concludes with a summary of the key findings and implications for hitters, as well as recommendations for further work. The insights gained from this analysis will be used to inform future work and potentially contribute to the development of new strategies for optimizing offensive performance in Major League Baseball.
 
@@ -71,7 +71,7 @@ The type of pitch thrown by the pitcher is another important aspect of the pitch
 kable(table(d$pitch_category), col.names = c("Pitch Category", "Frequency"))
 ```
 
-Given that our study focuses on the relationship between swing length, bat speed, and offensive production metrics, we explored the distribution of swing length and bat speed in the dataset. The histograms below show the distribution of bat speed and swing length in the dataset. Both individual plots revealed a bimodal distribution with one large peak at higher values (a full power swing) and a smaller and less frequent peak at lower values (these were investigated and found to mostly be bunts).
+Given that our study focuses on the relationship between swing length, bat speed, and offensive production metrics, we explored the distribution of swing length and bat speed in the dataset. Both histograms below revealed a bimodal distribution with one large peak at higher values (a full power swing) and a much smaller and less frequent peak at lower values (these were investigated and found to mostly be bunts).
 
 ```{r}
 par(pin = c(3, 2))
@@ -83,14 +83,14 @@ par(pin = c(3, 2))
 hist(d$swing_length, breaks=100, main = "Distribution of Swing Length (MLB)", xlab = "Swing Length (ft)", ylab = "Frequency")
 ```
 
-After the individual investigations, the two metrics were considered together in a scatterplot to understand the relationship between bat speed and swing length. The scatterplot below shows the relationship between bat speed and swing length for all batters in the dataset. While the correlation between the two metrics was calculated to only be around .5, the relationship is intuitive as a longer swing length allows for a greater range of motion and the potential for higher bat speed. Conversely, a shorter swing length at slower speeds is most often used for bunts or attempting to make contact with a pitch that is difficult to hit. 
+After the individual investigations, the two metrics were considered together in a scatterplot to understand the relationship between bat speed and swing length. The scatterplot below shows the relationship between bat speed and swing length for all batters in the dataset. While the correlation between the two metrics was calculated to be only 52.8%, the relationship is intuitive as a higher bat speed allows for a potentially greater range of motion. Conversely, a shorter swing length at slower speeds is most often used for bunts or attempting to make contact with a pitch that is difficult to hit. 
 
 ```{r}
 # scatterplot of bat speed and swing length
 swings = d %>%
   filter(!is.na(bat_speed)) %>%
   filter(!is.na(swing_length))
-cor(swings$bat_speed, swings$swing_length)
+#cor(swings$bat_speed, swings$swing_length)
 ```
 
 ```{r}
@@ -105,7 +105,7 @@ not_swings = d %>%
   filter(is.na(swing_length))
 ```
 
-Another aspect of the pitcher-batter interaction is the release point of each pitch as it moves towards the batter. The scatter plot below shows the release points of all pitches in the dataset. The x-axis represents the horizontal release point of the pitch, while the y-axis represents the vertical release point. This is information can be useful for batters to understand the trajectory of the pitch and make better decisions on whether to swing or not. This visual is color-coded by pitch category to show the distribution of different pitch types across the release points.
+Another aspect of the pitcher-batter interaction is the release point of each pitch as it moves towards the batter. The scatter plot below shows the release points of all pitches in the dataset, color-coded by pitch category. The x-axis represents the horizontal release point of the pitch, while the y-axis represents the vertical release point. This is information can be useful for batters to understand the trajectory of the pitch and make better decisions on whether to swing or not.
 
 ```{r}
 # Create a scatterplot of realease_pos_x, release_pos_z
@@ -121,7 +121,7 @@ ggplot(d_sample, aes(x = release_pos_x, y = release_pos_z, color = pitch_categor
   labs(title = "Release Point of Pitches by Pitch Category", x = "Horizontal Release Point", y = "Vertical Release Point")
 ```
 
-One of the metrics that results from the pitcher-batter interaction is Weighted on-base average (wOBA), which quantifies offensive value of a play or player based on the relative value of each type of offensive event, normalized by season to be on comparable scales. The histogram below shows the distribution of wOBA in the dataset. This metric is important for understanding the overall offensive value of a player and can be used to evaluate the effectiveness of a batter in a given situation.
+One of the metrics that results from the pitcher-batter interaction is weighted On-Base Average (wOBA), which quantifies offensive value of a play or player based on the relative value of each type of offensive event, normalized by season to be on comparable scales. The histogram below shows the distribution of wOBA in the dataset. This metric is important for understanding the overall offensive value of a player and can be used to evaluate the effectiveness of a batter in a given situation.
 
 ```{r}
 # Create a histogram of wOBA
@@ -133,7 +133,7 @@ hist(d$estimated_woba_using_speedangle, breaks = 100, main = "Distribution of Es
 
 ## Section 3: Models and Interpretations
 
-We developed linear regression models to examine two primary objectives: (1) predicting bat speed and swing length using game-state and pitch-specific variables and (2) predicting estimated weighted on-base average (wOBA) using swing mechanics and game context variables. Linear regression was chosen for its simplicity and interpretability, aligning with the goal of providing actionable insights to optimize offensive performance.
+We developed linear regression models to examine two primary objectives: (1) predicting bat speed and swing length using game-state and pitch-specific variables and (2) predicting estimated weighted On-Base Average (wOBA) using swing mechanics and game context variables. Linear regression was chosen for its simplicity and interpretability, aligning with the goal of providing actionable insights to optimize offensive performance.
 
 ```{r}
 # create a training set
@@ -171,7 +171,7 @@ For the bat speed model, only certain types of pitches were statistically signif
 
 The coefficients from these models provide further insights into the relationship between predictors and the outcome variables (swing length and bat speed). For example, in the swing length model, the coefficient for balls (when factorized) suggests that batters adjust their swing length depending on how many balls they have in the count. A positive coefficient means that the swing length tends to increase as the count progresses (e.g., 2 balls vs. 0 balls). Similarly, the coefficients for outs_when_up show the positive relationship between these game-state variables and swing mechanics, with different coefficients indicating the magnitude of these effects. For strikes, we see a negative relationship, where more strikes are associated with shorter swing lengths. The coefficients for the count variables (balls, strikes, outs_when_up) in the bat speed model echoed these same relationships.
 
-The results of this model indicated that all included game-state variables, such as the number of strikes and balls, play a significant role in shaping swing mechanics, including swing length and bat speed. While the models provide insights into how these factors affect performance, their relatively low R-squared values suggest that other unexamined variables— such as batter-pitcher interactions, location of the pitch, or batter-specific factors— likely contribute to swing dynamics in ways that are not fully captured by these initial models. Although the results are easy to interpret, it may be beneficial to explore more complex models (like nonlinear or mixed effects models) with interaction terms and additional predictors (such as batter and pitcher handedness) in future work.
+The results of this model indicated that all included game-state variables, such as the number of strikes and balls, play a significant role in shaping swing mechanics, including swing length and bat speed. While the models provide insights into how these factors affect performance, their relatively low R-squared values suggest that other unexamined variables— such as batter-pitcher interactions, location of the pitch, or batter-specific factors— likely contribute to swing dynamics in ways that are not fully captured by these initial models. Although the results are easy to interpret, it may be beneficial to explore more complex models (like nonlinear or mixed effects models) with interaction terms and additional predictors in future work.
 
 ### Predicting wOBA
 
@@ -184,11 +184,11 @@ The second set of models sought to predict estimated wOBA, a widely used measure
 * release_speed: The speed at which the pitch is released can impact the batter's reaction time and swing mechanics, potentially affecting offensive productivity.
 
 
-As with the previous models predicting bat speed and swing length, we chose to treat balls, strikes, and outs_when_up as factors rather than numeric variables. This decision stemmed from the understanding that these counts represent discrete stages in an at-bat, and their influence on the outcome may not be linear. For example, the impact of being at 3 balls versus 0 balls might be more complex than a simple numerical difference.
+As with the previous models predicting bat speed and swing length, we chose to treat balls, strikes, and outs_when_up as factors rather than numeric variables. This decision stemmed from the understanding that these counts represent discrete stages in an at-bat, and their influence on the outcome may not be linear. For example, the impact of being at 3 balls versus 0 balls might be more complex than a simple linear relationship.
 
-We start by examining a correlation matrix to visualize the relationships between the numerical predictors and the outcome variable (estimated wOBA). This visualization can help identify potential nonlinear relationships or interactions that may not be captured by linear models.
+We start by examining a correlation matrix to visualize how the numerical predictors relate to the outcome variable (estimated wOBA). We can see that the numerical variables are weakly correlated with each other, with the strongest correlation being between swing_length and bat_speed, which we examined in the prior exploration stages. This suggests that the predictors are not highly collinear, which is important for the stability of the regression models.
 
-```{r}
+```{r, fig.height=5}
 # scatterplot of all predictors with outcome - to see nonlinear relationship
 swings_sample <- swings[sample(nrow(d), size = 0.1 * nrow(d)), ]
 
@@ -206,20 +206,18 @@ corrplot.mixed(cor(swings_sample[,c("estimated_woba_using_speedangle", "bat_spee
                tl.cex = .7)
 ```
 
-We can see that the numerical variables are weakly correlated with each other, with the strongest correlation being between swing_length and bat_speed, which we examined in the prior exploration stages. This suggests that the predictors are not highly collinear, which is important for the stability of the regression models.
-
 ```{r}
 model5 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + factor(balls) + factor(strikes) + factor(outs_when_up) + pitch_category + release_pos_x + release_pos_z + release_speed, data=train)
 summary(model5)
 ```
 
-After training and optimizing the models, we reviewed the summary of our most comprehensive model to understand the contribution of each predictor. This model accounts for 8.33% of the variability in estimated wOBA, as indicated by the R-squared value (R² = 0.0833). The results indicated several notable patterns and relationships that provide insights into the factors influencing weighted On-Base Average (wOBA).
+After training and optimizing multiple models, we reviewed the summary of our most comprehensive model to understand the contribution of each predictor. This model accounts for 8.33% of the variability in estimated wOBA, as indicated by the R-squared value (R² = 0.0833). The results indicated several notable patterns and relationships that provide insights into the factors influencing weighted On-Base Average (wOBA).
 
 Interestingly, the model shows a negative relationship between wOBA and swing length. This suggests that longer swings are associated with lower wOBA, which may initially seem counterintuitive given the positive correlation between swing length and bat speed. While higher bat speeds are typically linked to higher wOBA, longer swing lengths may not yield the same benefit. One possible explanation for this discrepancy is that longer swings are more likely to be bunts or other defensive swings that are not intended to produce strong contact or hits.
 
 The coefficients for the game-state variables also provided valuable insights. The model indicates that a higher count of balls tends to increase wOBA, whereas a higher count of strikes tend to decrease it. This aligns with baseball strategy, as batters in favorable counts (more balls than strikes) have a higher likelihood of achieving positive outcomes. Additionally, the number of outs when up shows a negative relationship with wOBA, suggesting that batters perform worse when there are more outs. This could be attributed to increased pressure or changes in pitcher behavior as the number of outs increases.
 
-Regarding pitch category, the model shows that fastballs and offspeed pitches are associated with higher wOBA compared to breaking balls. Curveballs and Other pitch types do not differ significantly from breaking balls. This aligns with baseball intuition, as fastballs are generally more likely to produce hits due to their velocity and predictability, whereas breaking balls tend to induce weaker contact or swings and misses.
+Regarding pitch category, the model shows that fastballs and offspeed pitches are associated with higher wOBA compared to breaking balls. Curveballs and Other pitch types do not differ significantly from breaking balls. This aligns with baseball intuition, as fastballs are generally more likely to produce hits due to their predictability when compared to breaking balls, which tend to induce weaker contact or swings and misses.
 
 The analysis of pitcher release variables provides further insights. The horizontal release point (release_pos_x) was not significant in the model, indicating that the lateral positioning of the pitch release has little impact on wOBA. In contrast, the vertical release point (release_pos_z) was somewhat significant, suggesting that the height at which the ball is released may influence batter performance. Specifically, higher release points are associated with higher wOBA. This finding could reflect batters' ability to adjust better to higher release points, potentially improving their ability to make contact. Finally, the release speed coefficient was significant and negative, indicating that faster pitches are associated with lower wOBA. This result aligns with the common understanding that faster pitches are harder to hit effectively, often resulting in more strikeouts or weak contact.
 
@@ -310,17 +308,17 @@ summary(model3)
 # decrease in R-squared when removed pitch_category
 ```
 
-The results indicated that in model 1 (bat_speed and swing_length only), the R-squared value of 4.83% was quite low, suggesting that these two predictors alone do not explain much of the variance in wOBA, though they are both statistically significant predictors. This model provides a basic understanding but is insufficient for accurately predicting offensive performance.
+The results indicated that in model 1 (bat_speed and swing_length only), the R-squared value of 4.86% was quite low, suggesting that these two predictors alone do not explain much of the variance in wOBA, though they are both statistically significant predictors. This model provides a basic understanding but is insufficient for accurately predicting offensive performance.
 
-Model 2, which included game-state variables like balls, strikes, outs_when_up, and pitch_category, showed a slight increase in R-squared to 8.12%. The addition of these predictors provided more explanatory power, with pitch_category contributing to the model— though it was only significant for certain pitch types, particularly fastballs. Some of the game-state variables (balls, strikes, outs_when_up) were significant in predicting estimated wOBA. However, it is noteworthy that 1 ball was not a significant predictor of wOBA when compared to 0 balls, and the same for 1 out compared to no outs when up. Pitch category also showed statistical significance for fastballs compared to breaking balls, suggesting that batters' responses to fastballs are more predictive of offensive productivity than their responses to breaking pitches. The model accounts for 8.12% of the variability in wOBA, indicating that contextual factors (such as pitch type and count) add some valuable explanatory power beyond the basic batter mechanics.
+Model 2, which included game-state variables like balls, strikes, outs_when_up, and pitch_category, showed a slight increase in R-squared to 8.4%. The addition of these predictors provided more explanatory power, with pitch_category contributing to the model— though it was only significant for certain pitch types, particularly fastballs. Some of the game-state variables (balls, strikes, outs_when_up) were significant in predicting estimated wOBA. However, it is noteworthy that 1 ball was not a significant predictor of wOBA when compared to 0 balls, and the same for 1 out compared to no outs when up. Pitch category also showed statistical significance for fastballs compared to breaking balls, suggesting that batters' responses to fastballs are more predictive of offensive productivity than their responses to breaking pitches. The model accounts for 8.12% of the variability in wOBA, indicating that contextual factors (such as pitch type and count) add some valuable explanatory power beyond the basic batter mechanics.
 
-In Model 3, we further refined the model by removing the pitch_category variable and focusing on the same set of predictors (bat speed, swing length, and game-state variables). This model still performed reasonably well (R² = 0.8092) but showed that pitch category was an important variable in explaining wOBA, especially for fastballs, reinforcing the idea that pitch type plays a substantial role in offensive productivity.
+In Model 3, we further refined the model by removing the pitch_category variable and focusing on the same set of predictors (bat speed, swing length, and game-state variables). This model had a slight decrease in R-squared (R² = 0.08414) which showed that pitch category was an important variable in explaining wOBA, especially for fastballs, reinforcing the idea that pitch type plays a substantial role in offensive productivity.
 
 In terms of model performance, the increase in R-squared values from Model 1 to Model 2 shows that adding contextual factors such as pitch type and game situation improves the model’s explanatory power. The R-squared value for Model 2 was the highest of the three initial models, suggesting that the factors we included (bat speed, swing length, balls, strikes, outs when up, and pitch category) contribute meaningful predictive value to wOBA.
 
 Model diagnostics indicated a reasonable fit for the data, though there are some areas for improvement. While the inclusion of game-state variables enhanced the model's performance, nonlinear relationships or the potential need for mixed-effects models (to account for batter and pitcher variability) could further refine the predictions. This could involve introducing interaction terms between game-state variables or exploring how batter-pitcher matchups affect wOBA in a more granular way.
 
-Lastly, we also examined p_throws and stand, which represent the pitcher's throwing hand and the batter's stance, respectively. Batter-pitcher matchups can influence the outcome of the at-bat, and these variables could provide insights into batter-pitcher interactions. However, in model 6, we found that neither of these variables were significant predictors of wOBA. Despite this model having a comparable R-squared value to model 5, the lack of significance for these variables suggests that other factors may be more influential in determining offensive productivity, and we decided to examine model 5 as our most comprehensive model in the main section of this report.
+Lastly, we also examined `p_throws` and `stand`, which represent the pitcher's throwing hand and the batter's stance, respectively. Batter-pitcher matchups can influence the outcome of the at-bat, and these variables could provide insights into batter-pitcher interactions. However, in model 6, we found that neither of these variables were significant predictors of wOBA. Despite this model having a comparable R-squared value to model 5, the lack of significance for these variables suggests that other factors may be more influential in determining offensive productivity, and we decided to examine model 5 as our most comprehensive model in the main section of this report.
 
 ```{r}
 # model 6
@@ -330,9 +328,9 @@ summary(model6)
 # neither one is a significant predictor or wOBA
 ```
 
-To compare the performance of our wOBA models, we can use a series of plots that show the R-squared values of each model. This helps identify which model provides the best fit and predictive accuracy.
+To compare the performance of our wOBA models, we used a series of plots that show the R-squared values of each model. This helps identify which model provides the best fit and predictive accuracy.
 
-```{r, fig.height=4}
+```{r}
 # Compare R-squared values of models
 model_comparison <- data.frame(
   Model = c("wOBA Model 1", "wOBA Model 2", "wOBA Model 3", "wOBA Model 5", "wOBA Model 6"),
@@ -428,7 +426,7 @@ These plots help visually assess the impact of different pitch types. For exampl
 
 In the wOBA prediction models, we found that bat speed and swing length had significant relationships with estimated wOBA. However, the effect of swing length was somewhat counterintuitive— longer swings were associated with lower wOBA, even though bat speed was positively correlated with wOBA. To further investigate this, we can create scatter plots to examine the relationship between bat speed, swing length, and wOBA.
 
-```{r, fig.height=4}
+```{r}
 # Scatter plot of Bat Speed vs wOBA
 ggplot(train, aes(x = bat_speed, y = estimated_woba_using_speedangle)) +
   geom_point() +
@@ -448,7 +446,7 @@ These scatter plots reveal the relationships between swing mechanics and wOBA. W
 
 To assess how well the first two models predict swing length and bat speed, respectively, we plotted the predicted values against the actual values in the test set. This helps visualize how closely the model’s predictions align with the true data and provides an opportunity to observe any systematic errors or biases.
 
-```{r, fig.height=4}
+```{r}
 # compare the predicted swing length to the actual swing length
 test %>%
   mutate(predicted_swing_length = predict(model_length_improved, test)) %>%
