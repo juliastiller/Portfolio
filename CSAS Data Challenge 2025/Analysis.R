@@ -74,10 +74,8 @@ kable(table(d$strikes, d$balls))
 
 ##THE PLAN
 #examining swing lengths and bat speed by count,
-#then training a model  (only swings)
-#using the count and bat speed, swing length and any other
+#then training a model using the count and bat speed, swing length and any other
 #significant predictor to estimate either wOBA or run expectancy
-
 
 #we will say a swing is a pitch where the swing length and bat speed is not na
 
@@ -150,7 +148,7 @@ swings %>%
 # work on model:
 # create a training set
 train = swings %>%
-  select(bat_speed, swing_length, balls, strikes, outs_when_up, pitch_category, estimated_woba_using_speedangle, woba_value, woba_denom, release_pos_x, release_pos_z, release_speed) %>%
+  select(bat_speed, swing_length, balls, strikes, outs_when_up, pitch_category, estimated_woba_using_speedangle, woba_value, woba_denom, release_pos_x, release_pos_z, release_speed, p_throws, stand) %>%
   sample_frac(0.7)
 
 # create a test set
@@ -164,7 +162,6 @@ model_length = lm(swing_length ~ balls + strikes + outs_when_up + pitch_category
 model_speed = lm(bat_speed ~ balls + strikes + outs_when_up + pitch_category, data=train)
 
 # NEXT STEP: change the counts to categories to see what happens
-# may want interaction term, so don't keep them as numeric
 # factor the counts, don't keep them as numeric
 model_length_improved = lm(swing_length ~ factor(balls) + factor(strikes) + factor(outs_when_up) + pitch_category, data=train)
 model_speed_improved = lm(bat_speed ~ factor(balls) + factor(strikes) + factor(outs_when_up) + pitch_category, data=train)
@@ -183,6 +180,7 @@ model_speed_improved2 = lm(bat_speed ~ factor(balls) * factor(strikes) * factor(
 # evaluate the models
 summary(model_length_improved2)
 summary(model_speed_improved2)
+# lower R-squared, much more complicated to try to interpret
 
 # predict the swing length
 predict(model_length, test)
@@ -222,37 +220,44 @@ head(d %>%
 #so, the lower cloud on the batspeed swing length plot is largely bunts
 
 # model to predict wOBA or run expectancy
-# need to come back and figure out which one to use
-d$estimated_woba_using_speedangle # we want field-independent
+d$estimated_woba_using_speedangle # we want field-independent - use this metric
 d$woba_value
 d$woba_denom
 d$delta_run_exp
+
+# examine other variable:
+head(swings$delta_run_exp)
+head(not_swings$delta_run_exp)
 
 # wOBA model
 model1 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length, data=train)
 summary(model1)
 
-model2 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + balls + strikes + outs_when_up + pitch_category, data=train)
+model2 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + factor(balls) + factor(strikes) + factor(outs_when_up) + pitch_category, data=train)
 summary(model2)
 # there was an increase in R-squared values compared to model 1
 # pitch_category does not seem significant except for fastballs (when compared to reference: breaking balls)
 
-model3 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + balls + strikes + outs_when_up, data=train)
+model3 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + factor(balls) + factor(strikes) + factor(outs_when_up), data=train)
 summary(model3)
 
-model4 = lm(woba_value ~ bat_speed + swing_length + balls + strikes + outs_when_up, data=train)
+model4 = lm(woba_value ~ bat_speed + swing_length + factor(balls) + factor(strikes) + factor(outs_when_up), data=train)
 summary(model4)
 # models using estimated version are better
 
 # now include more metrics that are helpful for predicting wOBA
-# term for batter and pitcher? mixed effects model
 
-# include location of pitch in model
+# model 5
+# include location and speed of pitch in model
 # could break into regions and do categorical
-# add release_pos_x and release_pos_z to model
-model5 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + balls + strikes + outs_when_up + pitch_category + release_pos_x + release_pos_z + release_speed, data=train)
+model5 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + factor(balls) + factor(strikes) + factor(outs_when_up) + pitch_category + release_pos_x + release_pos_z + release_speed, data=train)
 summary(model5)
 
+# model 6
+# examine stand and p_throws - what side is batter, what hand is pitcher
+model6 = lm(estimated_woba_using_speedangle ~ bat_speed + swing_length + factor(balls) + factor(strikes) + factor(outs_when_up) + pitch_category + release_pos_x + release_pos_z + release_speed + p_throws + stand, data=train)
+summary(model6)
+# neither one is a significant predictor or wOBA
 
 # predict the wOBA
 predict(model3, test)
@@ -280,19 +285,17 @@ corrplot::corrplot(cor(swings[,c("bat_speed", "swing_length", "balls", "strikes"
 # use ggpairs()
 ggpairs(swings[,c("bat_speed", "swing_length", "balls", "strikes", "outs_when_up")])
 
+
+# future work:
+
 # could also break into stages - if you do or do not swing, what is the wOBA
 # expected wOBA of next state
 # could also use expected runs matrix
 # what if I don't swing and it's called a strike, or a ball?
 
-# can also examine other variable:
-head(swings$delta_run_exp)
-head(not_swings$delta_run_exp)
+# interaction terms?
 
-# examine stand and p_throws - what side is batter, what hand is pitcher
-
+# term for batter and pitcher? mixed effects model
 
 #also look at cases where they dont swing and use as training set for 
 #when batters should have swung, using the swings as training set (resulting wOBA)
-
-#subset of data to feature engineer/select???
