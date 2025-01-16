@@ -9,7 +9,7 @@ This repository contains the code and materials for our analysis of MLB pitch-le
 ## Files
 
 ### `Main.R`
-- **Description**: The primary script to run the entire analysis pipeline, including data preparation, exploratory analysis, and model building.
+- **Description**: The primary script to run the entire analysis pipeline, including data preparation, exploratory analysis, and model building. A folder titled "Raw-Data" must be added to your local environment containing the Data Challenges' CSV file in order to run the scripts.
 
 ### `ObtainData.R`
 - **Description**: Script to obtain the raw data for the 2025 CSAS Data Challenge and prepare it for preprocessing.
