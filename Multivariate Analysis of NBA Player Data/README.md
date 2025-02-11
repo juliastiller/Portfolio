@@ -7,7 +7,7 @@ This repository contains the code and materials for my analysis of NBA player-le
 ## Files
 
 ### `PrepData.R`
-- **Description**: Script for cleaning and preprocessing the raw data, including selecting relevant columns and narrowing down to the desired season.
+- **Description**: Script for cleaning and preprocessing the raw data, including selecting relevant columns and narrowing down to the desired season. The script assumes that you have a copy of the original .rds file in your working directory.
 
 ### `Report.Rmd`
 - **Description**: Main report file, contains introduction, detailed methodology, results, and interpretations of the analysis.
