@@ -1,0 +1,815 @@
+---
+title: "A Multivariate Analysis of NBA Player Data"
+author: 'Julia Stiller'
+date: '5/4/2024'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE
+                      )
+
+library(MASS)
+library(biotools)
+library(klaR)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(ggplot2)
+library(ggExtra)
+library(corrplot)
+library(PerformanceAnalytics)
+library(heplots)
+library(tidyverse)
+library(knitr)
+library(klaR)
+library(aplpack)
+library(fpc)
+library(cluster)
+library(ape)
+library(amap)
+library(vegan)
+library(car)
+```
+
+# Introduction
+
+&nbsp; &nbsp; The National Basketball Association (NBA) serves as a dynamic arena where talent, strategy, and statistics intersect to shape the events of a game. Statistical analyses play a pivotal role in unraveling the complexities of player performance, offering insights that can inform strategic decisions and drive competitive advantage. This project delves into the intricate web of relationships among diverse performance metrics, leveraging multivariate statistical techniques to extract meaningful patterns from player-level NBA data.
+
+&nbsp; &nbsp; In an era where data-driven decision-making reigns supreme, insights gleaned from statistical models can provide a competitive edge for players, coaches, analysts, and even fans alike. By dissecting the multidimensional nature of player performance, these analyses offer a holistic view of an athlete's contributions on the court, transcending traditional box score metrics to uncover nuanced insights. Statistical modeling empowers teams to optimize player utilization, refine game strategies, and forecast outcomes with greater accuracy. In essence, the fusion of statistics and sports not only enhances our understanding of the game but also revolutionizes how we approach player evaluation, team management, and strategic planning in the ever-evolving landscape of professional basketball.
+
+
+# Design and Primary Questions
+
+Through this exploration, I hope to answer pressing questions such as:
+
+* What are the key dimensions driving variations in player performance metrics?
+* Which combinations of performance metrics are most indicative of a player's overall impact on the game?
+* What predictive models can we construct to forecast player or team outcomes based on historical data?
+* Can we classify teams into distinct categories based on their statistical profiles, and what insights do these clusters offer?
+
+I will broach the analysis of these questions with the following tests:
+
+1. Principal Component Analysis (PCA)
+2. Quadratic Discriminant Analysis (QDA)
+3. Multivariate Analysis of Variance (MANOVA)
+4. Cluster Analysis
+
+&nbsp; &nbsp; The study will involve analyzing player-level NBA data spanning the 2021 - 2022 season, including scoring, rebounding, assists, and other performance metrics. After data preprocessing, PCA will uncover underlying patterns, followed by QDA for player classification. MANOVA will then assess performance differences across teams. Finally, Cluster Analysis will identify teams clusters, providing insights for talent evaluation and team strategy.
+
+
+# Data
+
+```{r}
+# read in data
+dd = readRDS('Data.rds')
+```
+
+&nbsp; &nbsp; My dataset is NBA player-level data from the 2021 - 2022 season. I have 21 variables related to the performance of 715 players. The variables are as follows:
+
+```{r}
+varnames <- colnames(dd)
+fullnames <- c("Player", "Team", "Season", "Player ID", "Team ID", "Total Minutes Played", "Total Field Goals Made", "Total Free Throws Made", "Total Offensive Rebounds", "Total Defensive Rebounds", "Total Assists", "Total Steals", "Total Blocks", "Total Turnovers", "Total Personal Fouls", "Total Points", "Total Possessions", "Average Plus-Minus", "Average Offensive Rating", "Average Defensive Rating", "Average Net Rating", "Average Effective Field Goal Percentage", "Average True Shooting Percentage", "Average Usage Percentage", "Average Pace", "Average Player Impact Estimate")
+types <- c("Categorical", "Categorical", "Categorical", "Categorical", "Categorical", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous")
+variables <- data.frame(varnames, fullnames, types)
+kable(variables, col.names = c("Variable", "Description", "Type"), align = "l")
+```
+
+&nbsp; &nbsp; This data was originally collected by experts starting in 2011 and going all the way up to 2022. Computers calculated aggregate metrics such as the ratings and percentages. I narrowed down the data to just be the 2021 - 2022 season for this analysis since the dataset was so large. Expanding to additional seasons will definitely be a point for further analysis in the future. Since the data was collected by humans, that is always a possible source of error, but there is so much data that small deviations should get averaged out. I did not notice any questionable points in the data, but I will be looking for outliers and other issues throughout my analysis.
+
+
+# Descriptive Plots and Summary Statistics
+
+&nbsp; &nbsp; First, I will examine the univariate distributions of my variables by looking at the boxplots and normal quantile plots for each variable. I will then make transformations as appropriate.
+
+```{r, fig.height=3, fig.width=5, fig.align='center'}
+# box plots for each variable
+par(las=2)
+boxplot(dd[,-c(1:5)])
+```
+
+```{r, fig.width=2.5, fig.height=2.5}
+# normal quantile plots
+qqnorm(dd$total.mins, main = "mins")
+qqline(dd$total.mins)
+qqnorm(dd$total.fgm, main = "fgm")
+qqline(dd$total.fgm)
+qqnorm(dd$total.ftm, main = "ftm")
+qqline(dd$total.ftm)
+qqnorm(dd$total.oreb, main = "oreb")
+qqline(dd$total.oreb)
+qqnorm(dd$total.dreb, main = "dreb")
+qqline(dd$total.dreb)
+qqnorm(dd$total.ast, main = "ast")
+qqline(dd$total.ast)
+qqnorm(dd$total.stl, main = "stl")
+qqline(dd$total.stl)
+qqnorm(dd$total.blk, main = "blk")
+qqline(dd$total.blk)
+qqnorm(dd$total.to, main = "to")
+qqline(dd$total.to)
+qqnorm(dd$total.pf, main = "pf")
+qqline(dd$total.pf)
+qqnorm(dd$total.pts, main = "pts")
+qqline(dd$total.pts)
+qqnorm(dd$total.poss, main = "poss")
+qqline(dd$total.poss)
+qqnorm(dd$avg.pm, main = "pm")
+qqline(dd$avg.pm)
+qqnorm(dd$avg.off.rat, main = "off.rat")
+qqline(dd$avg.off.rat)
+qqnorm(dd$avg.def.rat, main = "def.rat")
+qqline(dd$avg.def.rat)
+qqnorm(dd$avg.net.rat, main = "net.rat")
+qqline(dd$avg.net.rat)
+qqnorm(dd$avg.efg.p, main = "efg.p")
+qqline(dd$avg.efg.p)
+qqnorm(dd$avg.ts.p, main = "ts.p")
+qqline(dd$avg.ts.p)
+qqnorm(dd$avg.usg.p, main = "usg.p")
+qqline(dd$avg.usg.p)
+qqnorm(dd$avg.pace, main = "pace")
+qqline(dd$avg.pace)
+qqnorm(dd$avg.pie, main = "pie")
+qqline(dd$avg.pie)
+```
+
+&nbsp; &nbsp; A lot of my "total" variables (field goals made, free throws made, offensive rebounds, defensive rebounds, assists, blocks, turnovers, points, possessions) have a lot of outliers and are not normally distributed. This makes sense because count data often follows Poisson distributions. Additionally, player-level basketball data like this is going to vary a lot by the position of the player. For example, a center is going to have a lot more rebounds and blocks than a point guard. I also see that my "average" variables tend to be more normally distributed, but the values of these variables are large and therefore could be overbearing in my analysis. Because of all of this information, I am going to transform some of my variables by taking the square root. I'll start by transforming field goals made, free throws made, offensive rebounds, defensive rebounds, assists, steals, blocks, turnovers, personal fouls, points, possessions, offensive rating, defensive rating, and pace.
+
+```{r}
+# transform variables by taking square root of minutes, field goals made, 
+# free throws made, offensive rebounds, defensive rebounds, assists, steals,
+# blocks, turnovers, personal fouls, points, possessions, offensive rating,
+# defensive rating, and pace
+
+dd = dd %>%
+  mutate(
+    total.mins = sqrt(total.mins),
+    total.fgm = sqrt(total.fgm),
+    total.ftm = sqrt(total.ftm),
+    total.oreb = sqrt(total.oreb),
+    total.dreb = sqrt(total.dreb),
+    total.ast = sqrt(total.ast),
+    total.stl = sqrt(total.stl),
+    total.blk = sqrt(total.blk),
+    total.to = sqrt(total.to),
+    total.pf = sqrt(total.pf),
+    total.pts = sqrt(total.pts),
+    total.poss = sqrt(total.poss),
+    avg.off.rat = sqrt(avg.off.rat),
+    avg.def.rat = sqrt(avg.def.rat),
+    avg.pace = sqrt(avg.pace)
+  )
+#head(dd, 2)
+
+dd.orig = dd
+```
+
+
+# Multivariate Analysis and Results
+
+## 1. Principal Components Analysis (PCA)
+
+&nbsp; &nbsp; Principal Component Analysis (PCA) is a technique used to reduce the dimensionality of a dataset by transforming the original variables into a set of linearly uncorrelated variables called principal components. These components capture the maximum amount of variance in the data, allowing for a more concise representation of the underlying patterns and relationships among the variables. First, I will examine whether the data seems to have a multivariate normal distribution.
+
+```{r, fig.height=3, fig.width=5, fig.align='center'}
+# make a chi-square quantile plot of the data
+cqplot(dd[, -c(1:5)], main = "NBA Player Data 2022")
+```
+
+&nbsp; &nbsp; The data does not appear to have a multivariate normal distribution (although this plot looks better than it did before I made the transformations above), which means that my data is skewed. This is not a requirement for PCA, but it is good to know for conducting my other analyses and interpreting them.
+
+&nbsp; &nbsp; Now we can look at the correlation matrix between all variables. In PCA, we want to see if there are strong relationships between the variables because PCA will identify directions where most of the variability in the data occurs. If there are strong relationships between the variables, then PCA will work well. If there are not strong relationships between the variables, then PCA will not work well.
+
+```{r, fig.height=7, fig.width=8, fig.align='center'}
+# visual representation of correlations
+corrplot.mixed(cor(dd[, -c(1:5)]),
+               lower.col = "black",
+               upper = "ellipse",
+               tl.col = "black",
+               number.cex = .7,
+               number.digits = 2,
+               order = "hclust",
+               tl.pos = "lt",
+               tl.cex = .7)
+```
+
+&nbsp; &nbsp; Based on this correlation visual, PCA will work well because a lot of the variables are strongly correlated, so it will be able to identify directions where most of the variability in the data occurs. For example, there is a strong positive correlation between field goals made, free throws made, and points, which makes sense because field goals and free throws literally constitute the total number of points. Interestingly, defensive rating is very weakly correlated with almost all of the other variables, except it is pretty negatively correlated with net rating. This also makes sense because net rating is offensive rating MINUS defensive rating, so when defensive rating is big, it pulls the net rating down, whereas it does not have as much of an effect on the net rating when defensive rating is small. Overall, PCA should work well because there are a lot of relationships between the variables which can definitely be reduced down into fewer dimensions.
+
+&nbsp; &nbsp; Next, PCA was conducted on the correlation matrix of the data, which standardizes the variables so that they are all on the same scale. This is important because PCA is looking for directions where most of the variability in the data occurs, and if the variables are on different scales, then PCA will be biased towards the variables with the largest scale. I will examine how many principle components to retain based on the cumulative proportion of variance explained by a given number of PC's, the eigenvalues, a scree plot, and parallel analysis.
+
+```{r}
+# first, use princomp() to perform PCA
+# cor = TRUE means run on the correlation matrix, i.e. standardize the variables
+pc1 <- princomp(dd[, -c(1:5)], cor = TRUE)
+```
+
+```{r}
+# print the standard deviations
+# examine how much of the total variance is explained by a given number of PC's
+#summary(pc1)
+
+# format the output
+components <- cbind(paste0(cumsum(round(pc1$sdev^2/sum(pc1$sdev^2), 4))*100, '%'), round(pc1$sdev^2,2))
+kable(components, col.names = c("Cumulative Proportion of Variance", "Eigenvalues"), align = "r")
+```
+
+&nbsp; &nbsp; If I want to account for 80% of the variance in my principle components, based on the cumulative proportion displayed above, I would need to keep the first five PC's. These would account for 84.02% of the variance in my data. If I want to keep eigenvalues greater than 1, I would need to keep the first four PC's, as the fifth one is 0.95. Next, I will check a scree plot and perform a parallel analysis to see whether this helps determine how many PC's to examine. However, as mentioned in the summary statistics section above, my data does not have a multivariate normal distribution, so I will be cautious about interpreting the results of the parallel analysis.
+
+```{r, fig.height=3, fig.width=5, fig.align='center'}
+# perform parallel analysis
+# get the function online
+source("http://www.reuningscherer.net/multivariate/R/parallel.r.txt")
+
+# make the parallel analysis plot using the parallelplot function
+# this function may be defunct as of 2025
+parallelplot(pc1)
+```
+
+&nbsp; &nbsp; To interpret the scree plot, I am looking for an "elbow" in the red line to see where I should cut off the number of principle components. I would say that the most obvious elbow is at 2 PC's, meaning I would only keep the first one. However, taking the parallel analysis into account, I am looking for where the blue and green lines intersect with the red line. I would say that the lines cross paths between the 3rd and 4th principal components, which would suggest that I keep the first 3 PC's. Combining all of the observations together, I will keep the first 4 PC's to find a middle ground between this parallel analysis, the cumulative proportion of variance explained, and the eigenvalues.
+
+&nbsp; &nbsp; Now that I have decided to keep four principal components, I will examine the loadings for these retained components and think about how to interpret them.
+
+```{r}
+# get loadings
+kable(pc1$loadings[,c(1:4)], cutoff = 0, digits = 2)
+```
+
+1. The first PC is loaded the most on minutes, field goals made, points, and possessions, which suggests that this principal component represents time with the ball. This is because the more minutes a player is on the court, the more likely they are to possess the ball, and thus they are likely to get points during these possessions (i.e. field goals made).  
+2. The second PC is loaded the most on defensive rating, net rating, and offensive rating which suggests that this principal component represents the player's overall ability to score and prevent their opponent from scoring. As previously mentioned, the net rating is the difference between the offensive and defensive ratings, so a player with a high net rating is likely to have a high offensive rating and a low defensive rating, which is why the loading for the defensive rating is the opposite sign from the other two.  
+3. The third PC is loaded the most on effective field goal percentage and true shooting percentage which suggests that this principal component represents the player's shooting accuracy. This again makes sense that they would be loaded the most on the same principal component.  
+4. The fourth PC is loaded the most on usage percentage and player impact estimate which suggests that this principal component represents the player's overall impact on the game. This is because the usage percentage represents how many times a player ends one of his team's possessions (generally with field goal attempts, but could also be due to turnovers, etc.) and the player impact estimate measures their contribution overall.  
+
+&nbsp; &nbsp; Therefore, in summary, the majority of the variability in my data can be explained by the player's time with the ball, their ability to score while preventing their opponent from scoring, their shooting accuracy, and their overall impact on the game. These are all key aspects of a player's performance in a basketball game, so the results of PCA make sense in the context of this topic.
+
+&nbsp; &nbsp; Next, I made score plots for a few pairs of component scores (one and two, one and three, two and three). The score plots include a 95% Confidence Ellipse for the two components.
+
+```{r, fig.height=3, fig.width=5, fig.align='center'}
+# get function from online
+source("http://reuningscherer.net/multivariate/r/ciscoreplot.R.txt")
+
+# run the function
+# c(1,2) specifies to use components 1 and 2, and so on
+par(cex = 0.5)
+# this function may be defunct as of 2025
+ciscoreplot(pc1, c(1, 2), dd$player)
+```
+  
+```{r, fig.height=3, fig.width=5, fig.align='center'}
+source("http://reuningscherer.net/multivariate/r/ciscoreplot.R.txt")
+par(cex = 0.5)
+# this function may be defunct as of 2025
+ciscoreplot(pc1, c(2, 3), dd$player)
+```
+  
+```{r, fig.height=3, fig.width=5, fig.align='center'}
+source("http://reuningscherer.net/multivariate/r/ciscoreplot.R.txt")
+par(cex = 0.5)
+# this function may be defunct as of 2025
+ciscoreplot(pc1, c(1, 3), dd$player)
+```
+
+&nbsp; &nbsp; I can see some groupings based on position- like I talked about in the beginning, with player-level basketball data, a lot of the differences come from the fact that each player has an assigned position and therefore has different priorities when it comes to their actions on the court. This is then reflected in their statistics being higher in some areas while lower in others. For example, in the plots for PC's 1 and 2, I see a lot of point guards in the top left corner which I think makes sense because they are trying to prevent the other team from scoring, which is consistent with a high PC 2. They might not possess the ball as much or score very often which is consistent with a low PC 1. In the plots for PC's 2 and 3, there is definitely much less of a pattern because the confidence ellipse is more centered with outliers in all directions. This makes sense because we know that the majority of the variability in the data is captured by PC 1, which is not included in this graph. Finally in the plots for PC's 1 and 3, I see some forwards in the bottom left corner which I think makes sense because this position is known for not scoring very much. So this would be consistent with the low points of PC 1 as well as the low shooting accuracy of PC 3. These are just a few examples but are not necessarily the case for every point outside of the confidence ellipse.
+
+```{r, warning = FALSE, fig.height=7, fig.width=8, fig.align='center'}
+# make matrix plot to check for linearity
+#plot(dd[, -c(1:5)], pch = 19, cex = .7, col = 'red')
+
+# a cool way to look for non-linearity, get correlation, make histograms all at once.
+chart.Correlation(dd[, -c(1:5)], histogram = TRUE, pch = 19)
+
+```
+
+&nbsp; &nbsp; To conclude my Principal Component Analysis, I examine the scatter plots above and see that some of my variables have strong linear relationships, but most of them have weak linear relationships, if it all. Because PCA assumes linearity, I do think there are limitations to the effectiveness of using PCA on this data. That being said, I was able to reduce the number of dimensions from 21 to 4, which is a significant reduction. The first 4 PC's were able to capture a lot of the variability in the data, as I was able to account for 79.5% of the variance, and the loadings for these 4 PC's were highly interpretable to capture very important aspects of a player's performance. The outliers on the score plots were able to show some groupings based on position, which is consistent with the fact that player-level sports data is going to vary a lot depending on their role. Lastly, I have a lot of observations relative to the number of variables which is a good thing for this analysis. In summary, I think that PCA was effective on this data because it was able to reduce the number of dimensions, capture a lot of the variability in the data, and show some relationships between the variables. However, due to the linearity assumption not being met, I would want to revisit my transformations to try to adjust this and see if I can get a better result.
+
+
+## 2. Discriminant Analysis
+
+&nbsp; &nbsp; Discriminant Analysis is a technique used to classify observations into groups based on their characteristics. I will be using Discriminant Analysis to classify players into teams based on the values of their metrics (which represent the player's performance). The first step is to consider whether the assumptions have been met. Unfortunately, after examining the chi-square quantile plots, I see that the data does not have a multivariate normal distribution WITHIN each group. I will also examine the covariance matrices for each team to see if they are similar. 
+
+```{r}
+dd = dd %>% 
+  filter(team != "HOU" & team != "GSW" & team != "MIN" & team != "CHA")
+
+dd = dd %>% mutate(team = factor(team))
+```
+
+```{r}
+boxM(dd[,-c(1:5)], dd$team)
+```
+
+&nbsp; &nbsp; The p-value is very small (p<0.05), so I reject the null hypothesis that the covariance matrices are equal. Unfortunately, this means there is evidence that the covariance matrices are different across my groups. Because of this, I will be using quadratic discriminant analysis. I will also perform linear discriminant analysis just to be able to compare the classification accuracies (since the covariance assumption is not met).
+
+```{r}
+# linear discriminant analysis
+team.lin.disc <- lda(dd[,-c(1:5)], grouping = dd$team)
+
+raw.lin <- table(dd$team, predict(team.lin.disc)$class)
+#raw.lin
+
+# quadratic discriminant analysis
+team.quad.disc <- qda(dd[,-c(1:5)], grouping = dd$team)
+
+raw.quad <- table(dd$team, predict(team.quad.disc)$class)
+#raw.quad
+
+# total percent correct
+data <- cbind(paste0(round(sum(diag(prop.table(raw.lin))),4)*100, '%'), paste0(round(sum(diag(prop.table(raw.quad))),4)*100, '%'))
+kable(data, col.names = c("LDA", "QDA"), align = "r")
+```
+
+&nbsp; &nbsp; The quadratic discriminant analysis model accurately classifies 94% of the data whereas the linear model accurately classifies only 24% of the data. I will now proceed with checking whether there is statistical evidence that the multivariate group means are different.
+
+```{r}
+# MANOVA
+team.manova <- manova(as.matrix(dd[,-c(1:5)]) ~ dd$team)
+summary.manova(team.manova, test="Wilks")
+```
+
+&nbsp; &nbsp; Because the p-value is very small (p<0.05), I reject the null hypothesis that the multivariate group means are equal. This means that there is statistical evidence that the multivariate group means are different! Furthermore, this suggests that discriminant analysis is effective in classifying the players into their respective teams because the teams have different average values for the 21 metrics that I have in my dataset. Next, I will look into how many discriminant functions are significant and what the relative discriminating power of each function is.
+
+```{r}
+source("http://www.reuningscherer.net/multivariate/R/discrim.r.txt")
+kable(head(discriminant.significance(data.frame(dd[,-c(1:5)]), dd$team)))
+```
+
+&nbsp; &nbsp; There are 21 discriminant functions since there are 21 variables, however, I only output the top 6 rows because the majority of the functions are not significant. Only the first two discriminant functions are significant (p<0.05), and the functions after that quickly become very insignificant. The first function has the most relative discriminating power and is about 30% better at discriminating than the second function. Now I will look into which variables are the most discriminating.
+
+```{r}
+# MANOVA
+team.manova2 <- manova(as.matrix(dd[,c("avg.pm","avg.off.rat","avg.def.rat","avg.net.rat","avg.pace")]) ~ dd$team)
+summary.aov(team.manova2)
+```
+
+&nbsp; &nbsp; I ran MANOVA on all of the variables, but these are the significant discriminating variables: average plus-minus, average offensive rating, average defensive rating, average net rating, and average pace. So lastly, I will now use this knowledge to get plots of my data in the space spanned by average plus-minus, average defensive rating, and average pace that show which regions are assigned to each group.
+
+```{r, fig.height=4, fig.width=8, , fig.align='center'}
+#plot results in space spanned by chosen variables
+levels(dd$team) = c("DEN", "PHI", "PHX", "WAS", "BOS", "OKC", "SAC", "ORL",
+                    "IND", "NYK", "CHI", "NOP", "LAC", "BKN", "POR", "LAL",
+                    "SAS", "TOR", "MIA", "DAL", "MIL", "ATL", "UTA", "MEM",
+                    "CLE", "DET")
+partimat(team ~ avg.pm + avg.def.rat + avg.pace, data = dd, method = "qda")
+```
+
+&nbsp; &nbsp; Although my data does not meet the two assumptions of discriminant analysis (multivariate normality and equal covariance matrices), I was able to use quadratic discriminant analysis to classify the players into their respective teams with 94% accuracy. This is much better than the 24% accuracy I got from linear discriminant analysis. I also found that there is statistical evidence that the multivariate group means are different, which suggests that discriminant analysis is effective in classifying the players into their respective teams. The first two discriminant functions are significant, and the first function has the most relative discriminating power. The most discriminating variables are average plus-minus, average offensive rating, average defensive rating, average net rating, and average pace. I will be able to leverage this information in my next multivariate analysis: MANOVA. Lastly, I was able to plot the results in the space spanned by these variables to show which regions are assigned to each group. This is a very interesting result because it shows that the players are being classified into their teams based on their performance metrics.
+
+
+## 3. Multivariate Analysis of Variance (MANOVA)
+
+&nbsp; &nbsp; MANOVA is a technique used to determine whether there are statistically significant differences between the means of two or more groups. I will be using MANOVA to determine whether there are statistically significant differences in the team-level means of total points and average net rating. While I could run MANOVA on all of my metrics, I found in my discriminant analysis that average net rating is a defining characteristic of players. I also know that points are inherently a defining characteristic because it is literally what leads teams to win or lose games. So I will only be analyzing these two metrics and will start by creating boxplots of each of these metrics for all teams (note: this analysis is excluding HOU, GSW, MIN, and CHA because they have fewer than 22 observations which is required for some of the functions).
+
+```{r, fig.height=3, fig.width=7, fig.align='center'}
+dd = dd.orig %>%
+  filter(team != "HOU" & team != "GSW" & team != "MIN" & team != "CHA")
+dd = dd %>% mutate(team = factor(team))
+# Boxplot of square root of points scored for each team
+# rotate x labels by 90 degrees for readability
+par(las=2)
+boxplot(total.pts ~ team, data = dd, col = 'yellow', main = "Total Points By Team", ylab = "")
+means <- tapply(dd$total.pts, dd$team, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+```
+  
+```{r, fig.height=3, fig.width=7, fig.align='center'}
+# Boxplot of average net rating for each team
+# rotate x labels by 90 degrees for readability
+par(las=2)
+boxplot(avg.net.rat ~ team, data = dd, col = 'yellow', main = "Average Net Rating By Team", ylab = "")
+means <- tapply(dd$avg.net.rat, dd$team, mean)
+points(means, col = "red", pch = 19, cex = 1.2)
+```
+
+&nbsp; &nbsp; It looks like BOS, MIL, and WAS may have fewer points scored on average than the other teams, while BKN, DEN, LAC, and NOP may have more points scored. Overall, the square root (because the data is transformed) of the points scored is pretty comparable across all the teams. Average net rating is even harder to say which teams might be different just by looking at the box plot. I would saw that DET and TOR look like they have lower average net ratings, while BKN and IND may be a bit on the higher end. I can now run univariate ANOVA, as well as one-way MANOVA to see if there are statistically significant differences in the combination of total points and average net rating by team.
+
+```{r}
+teamManova <- lm(cbind(total.pts, avg.net.rat) ~ team, 
+                data = dd)
+summary.aov(teamManova)
+#anova(teamManova)   #Default is Pillai's trace
+#anova(teamManova, test = "Wilks")
+anova(teamManova, test = "Roy")
+```
+
+&nbsp; &nbsp; My univariate results say that total.pts do not significantly differ by team (p=1), but avg.net.rat does (p=0.003). This is interesting because just looking at the boxplots, I would have guessed the opposite, but running statistical analysis tells me something different. This is however consistent with my findings from the discriminant analysis. My multivariate results say that there is a significant difference in the combination of total.pts and avg.net.rat by team (p=0.003) using Roy's (which is based on the direction of maximum discrimination). So I will not perform a univariate contrast for total points since it is statistically insignificant, but I will perform a univariate contrast for average net rating, as well as a multivariate contrast for both of the metrics.
+
+```{r}
+#IMPORTANT - make sure this line of code is run BEFORE running contrasts
+options(contrasts = c("contr.treatment", "contr.poly"))  #this is the R default, but just in case
+
+#Test IND vs. everything else
+linearHypothesis(teamManova, "25*teamIND - teamBKN - teamBOS - teamCHI - teamCLE - teamDAL - teamDEN - teamDET - teamLAC - teamLAL - teamMEM - teamMIA - teamMIL - teamNOP - teamNYK - teamOKC - teamORL - teamPHI - teamPHX - teamPOR - teamSAC - teamSAS - teamTOR - teamUTA - teamWAS = 0") # suggests IND is statistically different from everything else (p=0.03)
+
+#Test TOR vs. everything else
+linearHypothesis(teamManova, "25*teamTOR - teamBKN - teamBOS - teamCHI - teamCLE - teamDAL - teamDEN - teamDET - teamIND - teamLAC - teamLAL - teamMEM - teamMIA - teamMIL - teamNOP - teamNYK - teamOKC - teamORL - teamPHI - teamPHX - teamPOR - teamSAC - teamSAS - teamUTA - teamWAS = 0") # suggests TOR is VERY statistically different from the other teams (p<0.001)
+```
+
+&nbsp; &nbsp; I ran multivariate contrasts on all of the teams, but only included the output from those that were statistically significant. Very interestingly, the combination of total.pts and avg.net.rat slightly sets IND apart from the other teams (p=0.03) and TOR is VERY statistically different from the other teams (p<0.001). I would have never guessed this from the boxplots, but it is cool to see that the statistical analysis is able to pick up on these differences in multi-dimensional space. Now for the univariate contrast for average net rating alone.
+
+```{r}
+# here are univariate contrasts for avg.net.rat
+mod.avg.net.rat <- lm(avg.net.rat ~ team, data = dd)
+
+# Test BKN vs. everything else
+linearHypothesis(mod.avg.net.rat, "25*teamBKN - teamBOS - teamCHI - teamCLE - teamDAL - teamDEN - teamDET - teamIND - teamLAC - teamLAL - teamMEM - teamMIA - teamMIL - teamNOP - teamNYK - teamOKC - teamORL - teamPHI - teamPHX - teamPOR - teamSAC - teamSAS - teamTOR - teamUTA - teamWAS= 0") # suggests BKN is different from the other teams (p=0.02)
+
+# Test IND vs. everything else
+linearHypothesis(mod.avg.net.rat, "25*teamIND - teamBKN - teamBOS - teamCHI - teamCLE - teamDAL - teamDEN - teamDET - teamLAC - teamLAL - teamMEM - teamMIA - teamMIL - teamNOP - teamNYK - teamOKC - teamORL - teamPHI - teamPHX - teamPOR - teamSAC - teamSAS - teamTOR - teamUTA - teamWAS= 0") # suggests IND is different from the other teams (p=0.01)
+
+# Test NYK vs. everything else
+linearHypothesis(mod.avg.net.rat, "25*teamNYK - teamBKN - teamBOS - teamCHI - teamCLE - teamDAL - teamDEN - teamDET - teamIND - teamLAC - teamLAL - teamMEM - teamMIA - teamMIL - teamNOP - teamOKC - teamORL - teamPHI - teamPHX - teamPOR - teamSAC - teamSAS - teamTOR - teamUTA - teamWAS= 0") # suggests NYK is different from the other teams (p=0.04)
+
+# Test TOR vs. everything else
+linearHypothesis(mod.avg.net.rat, "25*teamTOR - teamBKN - teamBOS - teamCHI - teamCLE - teamDAL - teamDEN - teamDET - teamIND - teamLAC - teamLAL - teamMEM - teamMIA - teamMIL - teamNOP - teamNYK - teamOKC - teamORL - teamPHI - teamPHX - teamPOR - teamSAC - teamSAS - teamUTA - teamWAS= 0") # suggests TOR is different from the other teams (p<0.001)
+```
+
+&nbsp; &nbsp; Again, I ran univariate contrasts for avg.net.rat on all of the teams, but only included the output from those that were statistically significant: BKN, IND, NYK, and TOR are different from the other teams with respect to avg.net.rat. This makes sense based on my observations that TOR looked like a lower average net rating and BKN looked a bit on the higher end, so it is cool to validate that hypothesis. Because this test is the one that had the most significant number of p-values, these are the ones that I will feed into a multiple comparison correction in a few paragraphs. Since I just ran 3*26=78 tests, I do think it is very important to make some corrections because it is possible that some of these were significant just by chance.
+
+&nbsp; &nbsp; Before I get into assumptions and corrections, I am going to add total minutes played, total possessions, total offensive rebounds, and total defensive rebounds to my model and fit as a multiple-response linear model. The reason I am adding the former two is because I think they could be predictors of total points, and the reason I am adding the latter two is because I think they could be predictors of average net rating. I will start with some plots to see if there are linear relationships between my covariates and my responses.
+
+```{r, fig.height=2.5, fig.width=2.5}
+# make some plots to see if there are linear relationships between your covariates and your responses
+plot(dd$total.mins, dd$total.pts) # looks like a linear relationship
+plot(dd$total.poss, dd$total.pts) # looks like a linear relationship
+plot(dd$total.oreb, dd$total.pts) # looks more like a quadratic relationship, if anything
+plot(dd$total.dreb, dd$total.pts) # looks more like a quadratic relationship, if anything
+
+plot(dd$total.mins, dd$avg.net.rat) # looks kind of linear with a lot of spread near 0
+plot(dd$total.poss, dd$avg.net.rat) # looks kind of linear with a lot of spread near 0
+plot(dd$total.oreb, dd$avg.net.rat) # looks kind of linear with a lot of spread near 0
+plot(dd$total.dreb, dd$avg.net.rat) # looks kind of linear with a lot of spread near 0
+```
+
+&nbsp; &nbsp; The relationships that look the most linear are between total minutes played and total points, total possessions and total points, and total defensive rebounds and total points. I will now perform univariate and multivariate analyses of variance by team.
+
+```{r}
+teamManova2 <- lm(cbind(total.pts, avg.net.rat) ~ team + total.mins + total.poss + total.oreb + total.dreb, 
+                data = dd)
+summary.aov(teamManova2)
+#anova(teamManova2)   #Default is Pillai's trace
+#anova(teamManova2, test = "Wilks")
+anova(teamManova2, test = "Roy")
+```
+
+&nbsp; &nbsp; My univariate results say that team, total.mins, total.poss, and total.dreb are all significant predictors of total.pts (p<0.01 for all of them), i.e., total.pts significantly differ by each of those predictors (not total.oreb). I find this very interesting because team was not a significant predictor of total.pts in the previous model, but now that I added continuous variables to the model, it is. My univariate results also say that team and total.mins are significant predictors of avg.net.rat (p<0.01 for both), i.e., avg.net.rat significantly differs by each of those predictors. While it is good to see that team has remained a significant predictor of avg.net.rat, it is interesting to see that total.mins is the only significant continuous predictor which is not what I expected.  
+
+&nbsp; &nbsp; My multivariate results are now very different from last time as well. All three methods say that there is a significant difference in the combination of total.pts and avg.net.rat by team, total.mins, total.poss, and total.dreb (p<0.01 for all of them). It is cool to see how adding different predictors changes which combinations are significant!
+
+&nbsp; &nbsp; I will now check model assumptions by making a chi-square quantile plot of the residuals.
+
+```{r, fig.height=3, fig.width=5, fig.align='center'}
+cqplot(teamManova$residuals, label = "Residuals from NBA Player Data MANOVA")
+```
+
+&nbsp; &nbsp; Unfortunately, the residuals for my MANOVA model do not appear to be multivariate normal. I did attempt to remove the teams that did not follow a multivariate normal distribution, but the residuals still did not appear to be multivariate normal, so I am not including that part in this analysis. This means that I have to be careful about the interpretability of my results since the model assumptions are not met. I will now perform a multiple comparison correction on the p-values from the univariate contrasts for avg.net.rat. These tests produced 4 significantly different teams so I think it is important to try to adjust the p-values. I will use the Bonferroni, Holm, and Hochberg methods to adjust the p-values.
+
+```{r}
+#General Multiple Comparison Corrections
+
+p.adjust(p = c(0.4723, 0.02443, 0.5197, 0.9426, 0.1402, 0.2888, 0.9791, 0.0863, 0.01237, 0.9493, 0.2243, 0.8485, 0.07931, 0.7178, 0.2552, 0.04985, 0.1469, 0.3362, 0.8144, 0.2322, 0.3458, 0.5742, 0.0928, 0.0002012, 0.5895, 0.8614), method = "bonferroni")
+
+p.adjust(p = c(0.4723, 0.02443, 0.5197, 0.9426, 0.1402, 0.2888, 0.9791, 0.0863, 0.01237, 0.9493, 0.2243, 0.8485, 0.07931, 0.7178, 0.2552, 0.04985, 0.1469, 0.3362, 0.8144, 0.2322, 0.3458, 0.5742, 0.0928, 0.0002012, 0.5895, 0.8614), method = "holm")
+
+p.adjust(p = c(0.4723, 0.02443, 0.5197, 0.9426, 0.1402, 0.2888, 0.9791, 0.0863, 0.01237, 0.9493, 0.2243, 0.8485, 0.07931, 0.7178, 0.2552, 0.04985, 0.1469, 0.3362, 0.8144, 0.2322, 0.3458, 0.5742, 0.0928, 0.0002012, 0.5895, 0.8614), method = "hochberg")
+```
+
+&nbsp; &nbsp; For all three of the adjustments, the only one that remains significant is TOR. This makes sense because of how low the p-value for TOR was with respect to avg.net.rat. After adjusting the p-values, I would now say that TOR is the only team that is statistically different from the other team's average net rating.
+
+&nbsp; &nbsp; To summarize my multivariate analysis of variance, I found that the combination of total.pts and avg.net.rat significantly differ by team, total.mins, total.poss, and total.dreb. I performed a multiple comparison correction on the p-values from the univariate contrasts for avg.net.rat, and after adjusting the p-values, I found that TOR's average net rating is the only one that is statistically different from the other teams. I also found that the residuals from my MANOVA model do not appear to be multivariate normal, so I have to be careful about the interpretability of these results.
+
+
+## 4. Cluster Analysis
+
+&nbsp; &nbsp; Cluster analysis is a technique used to group observations into clusters based on their characteristics. I will be using cluster analysis to group NBA teams based on their performance metrics. I will start by examining the data to see if there are any patterns that I can identify visually. I will then perform hierarchical clustering with Euclidean distance,  Manhattan distance, and squared maximum distance, as well as complete agglomeration, average agglomeration, and Ward's agglomeration methods to group the teams. I will start with the whimsical technique.
+
+```{r, fig.width=15, fig.height=15}
+# group data by team for cluster analysis, taking the mean of each variable
+dd.ca = dd.orig %>% 
+  group_by(team) %>% 
+  summarise(total.mins = mean(total.mins),
+    avg.fgm = mean(total.fgm),
+    avg.ftm = mean(total.ftm),
+    avg.oreb = mean(total.oreb),
+    avg.dreb = mean(total.dreb),
+    avg.ast = mean(total.ast),
+    avg.stl = mean(total.stl),
+    avg.blk = mean(total.blk),
+    avg.to = mean(total.to),
+    avg.pf = mean(total.pf),
+    avg.pts = mean(total.pts),
+    avg.poss = mean(total.poss),
+    avg.pm = mean(avg.pm),
+    avg.off.rat = mean(avg.off.rat),
+    avg.def.rat = mean(avg.def.rat),
+    avg.net.rat = mean(avg.net.rat),
+    avg.efg.p = mean(avg.efg.p),
+    avg.ts.p = mean(avg.ts.p),
+    avg.usg.p = mean(avg.usg.p),
+    avg.pace = mean(avg.pace),
+    avg.pie = mean(avg.pie)) %>%
+  as.data.frame()
+
+
+# create faces - first column has team names
+faces(dd.ca[, -1], labels = dd.ca[, 1], ncol.plot = 5, cex = 5, scale = TRUE)
+```
+
+&nbsp; &nbsp; Groupings I notice from the faces plot (there are some faces that are similar to the grouping but I didn't include - these are just some of my initial observations I will try to validate later in my analysis):  
+
+1. Red faces with green, concave down hair and oval mouths: BOS, CLE, DAL, DET, MIL, WAS. Based on variable effects that I can see in the output, these teams have distinct structure of face (avg.ftm), smiling (avg.ast), width of hair (avg.pf), and style of hair (avg.pts).  
+2. Orange/golden faces with tannish/yellow hair and blank expressions: BKN, DEN, LAC, MIA, NOP, ORL. These teams have distinct structure of face (avg.ftm), smiling (avg.ast), width of hair (avg.pf), and style of hair (avg.pts).  
+3. Yellow faces with with big purple eyes and large concave up hair: CHA, HOU, MIN. These teams have distinct structure of face (avg.ftm), smiling (avg.ast), height of eyes (avg.stl), width of hair (avg.pf), and style of hair (avg.pts).  
+
+&nbsp; &nbsp; Now, I will try hierarchical clustering with Euclidean distance (default) and complete agglomeration (default).
+
+```{r, fig.height=3, fig.width=6, fig.align='center'}
+# one way to standardize data
+dd.ca.standardized <- scale(na.omit(dd.ca[, -1]))
+
+# Get distance matrix
+dd.dist <- dist(dd.ca.standardized)
+
+# Perform cluster analysis
+dd.clust <- hclust(dd.dist)
+
+# Make dendrogram
+dd.clust$labels <- as.character(dd.ca[, 1])
+plot(dd.clust, xlab = "",ylab = "Distance", main = "Clustering for NBA Teams")
+# I identify six main groups (could do more groups)
+rect.hclust(dd.clust, k = 6)
+```
+
+&nbsp; &nbsp; I think I can see roughly six main groups, that could definitely be broken down into more groups depending on what I find in the rest of my analysis. First I notice that CHA is in a group on its own. Based on my initial theories of groupings, I notice that BOS & DAL & WAS are in the same group, BKN & DEN & LAC & NOP & MIA are in the same group, and HOU & MIN are in the same group. This is similar to some patterns I saw in the faces. Next, I will try hierarchical clustering with Manhattan distance and complete agglomeration (default).
+
+```{r, fig.height=3, fig.width=6, fig.align='center'}
+# Get distance matrix
+dd.dist <- dist(dd.ca.standardized, method = "manhattan")
+
+# Perform cluster analysis
+dd.clust <- hclust(dd.dist)
+
+# Make dendrogram
+dd.clust$labels <- as.character(dd.ca[, 1])
+plot(dd.clust, xlab = "",ylab = "Distance", main = "Clustering for NBA Teams")
+# I identify six main groups (could do more groups)
+rect.hclust(dd.clust, k = 6)
+```
+
+&nbsp; &nbsp; I notice GSW is an outlier on its own this time. BOS & DAL & MIL & WAS are in the same group, and also are identified as the only 4 teams of that group. For my last distance method, I will try hierarchical clustering with squared maximum distance and complete agglomeration (default).
+
+```{r, fig.height=3, fig.width=6, fig.align='center'}
+# Get distance matrix
+dd.dist <- dist(dd.ca.standardized, method = "maximum")
+
+# Perform cluster analysis
+dd.clust <- hclust(dd.dist)
+
+# Make dendrogram
+dd.clust$labels <- as.character(dd.ca[, 1])
+plot(dd.clust, xlab = "",ylab = "Distance", main = "Clustering for NBA Teams")
+# I identify five main groups (could do more groups)
+rect.hclust(dd.clust, k = 5)
+```
+
+&nbsp; &nbsp; This time, no team is a unique group on its own. BOS & DAL & WAS are still in the same group but there are other teams in that group. Now, I will change the agglomeration methods to try average and Ward's (with Euclidean distance as default) because they were suggested as possibly the better methods to use.
+
+```{r, fig.height=3, fig.width=6, fig.align='center'}
+# Get distance matrix
+dd.dist <- dist(dd.ca.standardized)
+
+# Perform cluster analysis
+dd.clust <- hclust(dd.dist, method = "average")
+
+# Make dendrogram
+dd.clust$labels <- as.character(dd.ca[, 1])
+plot(dd.clust, xlab = "",ylab = "Distance", main = "Clustering for NBA Teams")
+# I identify six main groups (could do more groups)
+rect.hclust(dd.clust, k = 6)
+```
+
+&nbsp; &nbsp; This one was interesting because I could see it being five or six groups but the rectangles are not grouping main groups that I would have considered just by looking at it. CHA is back to being its own group.
+
+```{r, fig.height=3, fig.width=6, fig.align='center'}
+# Get distance matrix
+dd.dist <- dist(dd.ca.standardized)
+
+# Perform cluster analysis
+dd.clust <- hclust(dd.dist, method = "ward.D")
+
+# Make dendrogram
+dd.clust$labels <- as.character(dd.ca[, 1])
+plot(dd.clust, xlab = "",ylab = "Distance", main = "Clustering for NBA Teams")
+# I identify five main groups (could do more groups)
+rect.hclust(dd.clust, k = 5)
+```
+
+&nbsp; &nbsp; This looks like the most evenly disbursed grouping. There is not a group that consists of only 1, 2, or even 3 teams and the groupings visually make sense on the dendrogram. Because the groupings are so evenly disbursed, I am going to use the Euclidean distance and the Ward's agglomeration method to plot cluster distance.
+
+```{r, fig.height=3, fig.width=6, fig.align='center'}
+source("http://reuningscherer.net/multivariate/R/HClusEval3.R.txt")
+
+#Call the function
+hclus_eval(dd.ca.standardized, dist_m = 'euclidean', clus_m = 'ward.D', plot_op = T, print_num = 30)
+```
+
+&nbsp; &nbsp; Based on this visual, I think I want to retain 5 groups. I want the root-mean-square standard deviation to be small, and there is a local minimum at 5. I want the R-squared to be close to 1, and it crosses the 60% threshold at 5. I also want the semi-partial R-squared to be near 0, and it looks like there is an elbow at 4, so it is more leveled-out at 5. Cluster distance is 0 everywhere for this method, which I think is good because I want this to be small as well. I will now run k-means clustering on my data to see how it compares to this.
+
+```{r}
+# Just try five clusters to see how this works
+km1 <- kmeans(dd.ca.standardized, centers = 5)
+#km1
+
+# see which teams are in each cluster
+for (i in 1:5){
+  print(paste("Teams in Cluster ", i))
+  print(dd.ca$team[km1$cluster == i])
+  print (" ")
+}
+```
+
+&nbsp; &nbsp; These clusters identified by k-means clustering are relatively similar to the clusters identified in the dendrogram using Euclidean distance and Ward's agglomeration methods. Next I will use the modified script by [Matt Peeples](https://github.com/mpeeples2008/Kmeans) to produce a screeplot-like diagram with randomized comparison based on randomization within columns (i.e. as if points had been randomly assigned data values, one from each column). This keeps total internal SS the same.
+
+```{r, fig.height=3, fig.width=6, fig.align='center'}
+#kdata is just normalized input dataset
+kdata <- dd.ca.standardized
+n.lev <- 29  #set max value for number of clusters k - I have 30 teams so there will be no more than 30 groups
+
+# Calculate the within groups sum of squared error (SSE) for the number of cluster solutions selected by the user
+wss <- rnorm(10)
+while (prod(wss==sort(wss,decreasing=T))==0) {
+  wss <- (nrow(kdata)-1)*sum(apply(kdata,2,var))
+  for (i in 2:n.lev) wss[i] <- sum(kmeans(kdata, centers=i)$withinss)}
+
+# Calculate the within groups SSE for 250 randomized data sets (based on the original input data)
+k.rand <- function(x){
+  km.rand <- matrix(sample(x),dim(x)[1],dim(x)[2])
+  rand.wss <- as.matrix(dim(x)[1]-1)*sum(apply(km.rand,2,var))
+  for (i in 2:n.lev) rand.wss[i] <- sum(kmeans(km.rand, centers=i)$withinss)
+  rand.wss <- as.matrix(rand.wss)
+  return(rand.wss)
+}
+
+rand.mat <- matrix(0,n.lev,250)
+
+k.1 <- function(x) { 
+  for (i in 1:250) {
+    r.mat <- as.matrix(suppressWarnings(k.rand(kdata)))
+    rand.mat[,i] <- r.mat}
+  return(rand.mat)
+}
+
+# Same function as above for data with < 3 column variables
+k.2.rand <- function(x){
+  rand.mat <- matrix(0,n.lev,250)
+  km.rand <- matrix(sample(x),dim(x)[1],dim(x)[2])
+  rand.wss <- as.matrix(dim(x)[1]-1)*sum(apply(km.rand,2,var))
+  for (i in 2:n.lev) rand.wss[i] <- sum(kmeans(km.rand, centers=i)$withinss)
+  rand.wss <- as.matrix(rand.wss)
+  return(rand.wss)
+}
+
+k.2 <- function(x){
+  for (i in 1:250) {
+    r.1 <- k.2.rand(kdata)
+    rand.mat[,i] <- r.1}
+  return(rand.mat)
+}
+
+# Determine if the data data table has > or < 3 variables and call appropriate function above
+if (dim(kdata)[2] == 2) { rand.mat <- k.2(kdata) } else { rand.mat <- k.1(kdata) }
+
+# Plot within groups SSE against all tested cluster solutions for actual and randomized data - 1st: Log scale, 2nd: Normal scale
+
+xrange <- range(1:n.lev)
+yrange <- range(log(rand.mat),log(wss))
+plot(xrange,yrange, type='n', xlab='Cluster Solution', ylab='Log of Within Group SSE', main='Cluster Solutions against Log of SSE')
+for (i in 1:250) lines(log(rand.mat[,i]),type='l',col='red')
+lines(log(wss), type="b", col='blue')
+legend('topright',c('Actual Data', '250 Random Runs'), col=c('blue', 'red'), lty=1)
+
+yrange <- range(rand.mat,wss)
+plot(xrange,yrange, type='n', xlab="Cluster Solution", ylab="Within Groups SSE", main="Cluster Solutions against SSE")
+for (i in 1:250) lines(rand.mat[,i],type='l',col='red')
+lines(1:n.lev, wss, type="b", col='blue')
+legend('topright',c('Actual Data', '250 Random Runs'), col=c('blue', 'red'), lty=1)
+
+# Calculate the mean and standard deviation of difference between SSE of actual data and SSE of 250 randomized datasets
+r.sse <- matrix(0,dim(rand.mat)[1],dim(rand.mat)[2])
+wss.1 <- as.matrix(wss)
+for (i in 1:dim(r.sse)[2]) {
+  r.temp <- abs(rand.mat[,i]-wss.1[,1])
+  r.sse[,i] <- r.temp}
+r.sse.m <- apply(r.sse,1,mean)
+r.sse.sd <- apply(r.sse,1,sd)
+r.sse.plus <- r.sse.m + r.sse.sd
+r.sse.min <- r.sse.m - r.sse.sd
+
+# Plot differeince between actual SSE mean SSE from 250 randomized datasets - 1st: Log scale, 2nd: Normal scale 
+
+xrange <- range(1:n.lev)
+if (min(r.sse.min) < 0){
+   yrange <- range(log(r.sse.plus - min(r.sse.min)*1.05), log(r.sse.min - min(r.sse.min)*1.05))
+} else {
+   yrange <- range(log(r.sse.plus), log(r.sse.min))
+}
+
+plot(xrange,yrange, type='n',xlab='Cluster Solution', ylab='Log of SSE - Random SSE', main='Cluster Solustions against (Log of SSE - Random SSE)')
+lines(log(r.sse.m), type="b", col='blue')
+lines(log(r.sse.plus), type='l', col='red')
+lines(log(r.sse.min), type='l', col='red')
+legend('topright',c('SSE - random SSE', 'SD of SSE-random SSE'), col=c('blue', 'red'), lty=1)
+
+xrange <- range(1:n.lev)
+yrange <- range(r.sse.plus,r.sse.min)
+plot(xrange,yrange, type='n',xlab='Cluster Solution', ylab='SSE - Random SSE', main='Cluster Solutions against (SSE - Random SSE)')
+lines(r.sse.m, type="b", col='blue')
+lines(r.sse.plus, type='l', col='red')
+lines(r.sse.min, type='l', col='red')
+legend('topright',c('SSE - random SSE', 'SD of SSE-random SSE'), col = c('blue', 'red'), lty = 1)
+
+# Select the appropriate number of clusters
+clust.level <- 5
+
+# Apply K-means cluster solutions - append clusters to CSV file
+fit <- kmeans(kdata, clust.level)
+#aggregate(kdata, by=list(fit$cluster), FUN=mean)
+clust.out <- fit$cluster
+kclust <- as.matrix(clust.out)
+kclust.out <- cbind(kclust, dd.ca.standardized)
+#write.table(kclust.out, file="kmeans_out.csv", sep=",")
+
+# Display Principal Components plot of data with clusters identified
+
+clusplot(kdata, fit$cluster, shade = F, labels = 2, lines = 0, color = T, lty = 4, main = 'Principal Components plot showing K-means clusters')
+
+
+#Make plot of five cluster solution in space desginated by first two
+#  two discriminant functions
+
+plotcluster(kdata, fit$cluster, main="Five Cluster Solution in DA Space",
+            xlab="First Discriminant Function", ylab="Second Discriminant Function")
+
+# end of script
+```
+
+&nbsp; &nbsp; The actual data is less than the random runs which is good. Looking at the Within Groups SSE plot, I see that the elbow is at 3 or 4. There is not much change after k=5, so I will continue to keep 5 groups for the rest of the analysis. Lastly, similar to the plots of the K-means clusters in PCA & DA space shown above, I will produce plots of my results in discriminant analysis space and in PCA space for the clusters identified in the dendrogram that used Euclidean distance and Ward's agglomeration.
+
+```{r, fig.height=3, fig.width=5, fig.align='center'}
+cuts <- cutree(dd.clust, k = 5)
+#cuts
+
+# Make plot of four cluster solution in space designated by first two principal components
+clusplot(dd.ca.standardized, cuts, color = TRUE, shade = TRUE, labels = 2, lines = 0,
+         main = "Five Cluster Plot, Ward's Method, First two PC", cex = .5)
+
+# Make plot of four cluster solution in space designated by first two discriminant functions
+plotcluster(dd.ca.standardized, cuts, main = "Five Cluster Solution in DA Space",
+            xlab = "First Discriminant Function", ylab = "Second Discriminant Function")
+```
+
+&nbsp; &nbsp; I am comfortable with the number of groups being 5 based on what I found above. I think that the groups are distinct and make sense based on the variables represented by my first to PC's. In PCA, I found that the first PC represents time with the ball and the second PC represents a team's ability to score and prevent their opponent from scoring. Even though groups 1 and 5 overlap a little on the PC plot, I think that the groups are generally separated pretty well based on these variables. So overall, based on my previous exploration, I am sticking with 5 groups.
+
+I am taking my final groups from the k-means clustering output:
+
+* Teams in cluster 1: DET, NYK, TOR  
+* Teams in cluster 2: ATL, BKN, CHI, DEN, IND, LAC, LAL, MEM, MIA, NOP, PHI, PHX, SAS  
+* Teams in cluster 3: CHA, GSW, HOU, MIN  
+* Teams in cluster 4: OKC, ORL, POR, SAC  
+* Teams in cluster 5: BOS, CLE, DAL, MIL, UTA, WAS  
+
+&nbsp; &nbsp; I can tell that these clusters are not based off of the location or conference of the team since they are all mixed together. So performance would make the most sense as to what separates the teams amongst these clusters. Comparing with my PC plot above:
+
+* Cluster 1 seems to have low time with the ball and a low ability to score. This makes sense with my MANOVA findings that TOR & DET have lower average net ratings (TOR statistically so).  
+* Cluster 2 has more time with the ball but still a low ability to score. This makes sense with what actually happened in the season because teams like MIA, MEM, and PHX made it far in the season (but GSW won the championship).  
+* Cluster 3 has the lowest time with the ball and the most variability in their ability to score. This was interesting to me because like I mentioned, GSW won the championship so I would expect them to be in the top right of the plot.  
+* Cluster 4 is best positioned for both variables- more time with the ball and better ability to score. This does not make sense to me because these four teams did not do well in the 2021-2022 season. So this cluster makes sense that they're grouped together but not when I put them on the PC plot.  
+* Cluster 5 spans an average amount of time with the ball and has a relatively good ability to score. This also does not makes sense with my MANOVA observations that BOS, MIL, and WAS had fewer points scored on average.  
+
+&nbsp; &nbsp; Overall, I do think that the way the teams are grouped together makes sense based off of their performances in the 2021-2022 season. However, when trying to makes sense of them on the PC plot, some of them make sense based on the variables, but some of them make no sense at all.
+
+
+# Conclusions and Discussion
+
+&nbsp; &nbsp; The comprehensive multivariate analysis of NBA player data conducted in this project provides valuable insights into the dynamics of the game. By leveraging advanced statistical techniques, this study tackled fundamental questions such as the drivers of player variations and the classification of teams based on statistical profiles.
+
+&nbsp; &nbsp; The analyses revealed several key findings about the structure and patterns of player-level basketball data. Principal Component Analysis (PCA) interrogated the underlying dimensions of player performance, highlighting the significance of factors such as time with the ball, scoring ability, shooting accuracy, and overall impact on the game. Discriminant Analysis enabled accurate classification of players into teams based on their metrics, showcasing the effectiveness of statistical modeling in team categorization. Multivariate Analysis of Variance (MANOVA) provided valuable insights into the differences in team-level means of average net rating, shedding light on the distinct characteristics of different NBA teams. Cluster Analysis further examined teams by grouping them based on performance profiles, offering nuanced perspectives on team compositions and competitive strategies.
+
+&nbsp; &nbsp; This project dives deep into the statistical intricacies of basketball games and the resulting data. Anyone with a stake in the game can make more informed and strategic decisions by leveraging the insights generated from this study. Coaches can optimize player rotations and game strategies based on the player's stats, while analysts can identify key performance indicators and predictive models for player outcomes. Team management can leverage the clustering analysis to understand the competitive landscape and develop targeted strategies for team improvement. Overall, the project represents a significant contribution to the intersection of sports analytics and statistical modeling, enhancing our understanding of the game and its complexities.
+
+
+# Points for Further Analysis
+
+&nbsp; &nbsp; The project opens up several avenues for further analysis and exploration in the domain of sports analytics. Some potential directions for future research include:
+
+* Explore additional transformations to help meet the assumptions of multivariate analysis techniques, such as the data following multivariate normal distributions
+* Incorporate more seasons worth of data to capture longitudinal trends and performance variations over time
+* Integrate position data to analyze player performance based on their roles and responsibilities on the court
+* Investigate the impact of game strategies, coaching decisions, and player interactions on team outcomes
+* Develop predictive models for performance based on advanced machine learning algorithms and statistical techniques
+
+&nbsp; &nbsp; By delving deeper into these areas, researchers can gain a more comprehensive understanding of player and team dynamics in basketball games, enabling more accurate predictions, strategic insights, and data-driven decision-making in the sports industry.
+
