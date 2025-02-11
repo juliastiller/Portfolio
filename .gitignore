@@ -50,3 +50,4 @@ rsconnect/
 CSAS Data Challenge 2025/Raw-Data/statcast_pitch_swing_data_20240402_20240630.csv
 *.rds
 CSAS Data Challenge 2025/Raw-Data/statcast_pitch_swing_data_20240402_20241030_with_arm_angle.csv
+*.csv
